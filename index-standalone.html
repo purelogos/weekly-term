@@ -582,8 +582,8 @@ body {
         <!-- PROJECT ROW -->
         <div class="row project-row" :style="`--project-color: ${project.color};`">
           <div class="name-cell project-name" @click="toggleProject(project.id)">
-            <span x-show="expandedProjects.has(project.id)">▼</span>
-            <span x-show="!expandedProjects.has(project.id)">▶</span>
+            <span x-show="isExpanded(project.id)">▼</span>
+            <span x-show="!isExpanded(project.id)">▶</span>
             <span x-text="project.name"></span>
             <button @click.stop="addMemberTargetProjectId = project.id; showAddMemberModal = true;" class="btn-icon-small">+ 구성원</button>
           </div>
@@ -605,7 +605,7 @@ body {
         </div>
 
         <!-- MEMBER ROWS (shown when project expanded) -->
-        <template x-if="expandedProjects.has(project.id)" x-for="member in project.members" :key="`member-${project.id}-${member.id}`">
+        <template x-for="member in (isExpanded(project.id) ? project.members : [])" :key="`member-${project.id}-${member.id}`">
           <div class="row member-row" :style="`--project-color: ${project.color};`">
             <div class="name-cell member-name" @click="selectMember(member.id)">
               <span x-text="member.name"></span>
@@ -799,7 +799,7 @@ function app() {
     // Projects with members loaded
     projects: [],
     allMembers: [],
-    expandedProjects: new Set(),
+    expandedProjects: {},
 
     // Drag state
     drag: {
@@ -974,11 +974,14 @@ function app() {
     },
 
     toggleProject(projectId) {
-      if (this.expandedProjects.has(projectId)) {
-        this.expandedProjects.delete(projectId);
-      } else {
-        this.expandedProjects.add(projectId);
-      }
+      this.expandedProjects = {
+        ...this.expandedProjects,
+        [projectId]: !this.expandedProjects[projectId]
+      };
+    },
+
+    isExpanded(projectId) {
+      return !!this.expandedProjects[projectId];
     },
 
     // ========== MEMBER ACTIONS ==========
@@ -1001,7 +1004,7 @@ function app() {
         });
       }
 
-      this.expandedProjects.add(projectId);
+      this.expandedProjects = { ...this.expandedProjects, [projectId]: true };
       this.newMember = { memberId: null };
       this.addMemberTargetProjectId = null;
       this.showAddMemberModal = false;
@@ -1035,7 +1038,7 @@ function app() {
           weeks: [],
           memo: ''
         });
-        this.expandedProjects.add(this.addMemberTargetProjectId);
+        this.expandedProjects = { ...this.expandedProjects, [this.addMemberTargetProjectId]: true };
       }
 
       this.createMember = { name: '', department: '', grade: '' };

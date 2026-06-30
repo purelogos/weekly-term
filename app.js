@@ -26,7 +26,7 @@ function app() {
     // Projects with members loaded
     projects: [],
     allMembers: [],
-    expandedProjects: new Set(),
+    expandedProjects: {},
 
     // Drag state
     drag: {
@@ -201,11 +201,14 @@ function app() {
     },
 
     toggleProject(projectId) {
-      if (this.expandedProjects.has(projectId)) {
-        this.expandedProjects.delete(projectId);
-      } else {
-        this.expandedProjects.add(projectId);
-      }
+      this.expandedProjects = {
+        ...this.expandedProjects,
+        [projectId]: !this.expandedProjects[projectId]
+      };
+    },
+
+    isExpanded(projectId) {
+      return !!this.expandedProjects[projectId];
     },
 
     // ========== MEMBER ACTIONS ==========
@@ -228,7 +231,7 @@ function app() {
         });
       }
 
-      this.expandedProjects.add(projectId);
+      this.expandedProjects = { ...this.expandedProjects, [projectId]: true };
       this.newMember = { memberId: null };
       this.addMemberTargetProjectId = null;
       this.showAddMemberModal = false;
@@ -254,7 +257,7 @@ function app() {
           weeks: [],
           memo: ''
         });
-        this.expandedProjects.add(this.addMemberTargetProjectId);
+        this.expandedProjects = { ...this.expandedProjects, [this.addMemberTargetProjectId]: true };
       }
 
       this.createMember = { name: '', department: '', grade: '' };
