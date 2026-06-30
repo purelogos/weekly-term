@@ -47,6 +47,7 @@
       <div class="cell header-cell header-info">프로젝트</div>
       <div class="cell header-cell header-info" style="min-width: 100px;">시작날짜</div>
       <div class="cell header-cell header-info" style="min-width: 100px;">종료날짜</div>
+      <div class="cell header-cell header-info" style="min-width: 160px;">메모</div>
       <template x-for="(week, idx) in weekHeaders" :key="idx">
         <div class="cell header-cell" x-text="week"></div>
       </template>
@@ -63,6 +64,7 @@
             <span x-text="project.name"></span>
             <button @click.stop="addMemberTargetProjectId = project.id; showAddMemberModal = true;" class="btn-icon-small">+ 구성원</button>
           </div>
+          <div class="cell info-cell"></div>
           <div class="cell info-cell"></div>
           <div class="cell info-cell"></div>
           <div class="cell info-cell"></div>
@@ -90,6 +92,10 @@
             </div>
             <div class="cell info-cell date-cell" x-text="member.startDate"></div>
             <div class="cell info-cell date-cell" x-text="member.endDate"></div>
+            <div class="cell info-cell memo-cell">
+              <input type="text" placeholder="메모..." :value="member.memo || ''"
+                     @change="updateMemo(member.assignmentId, $event.target.value)">
+            </div>
             <template x-for="(week, weekIdx) in weekHeaders" :key="`member-${project.id}-${member.id}-${weekIdx}`">
               <div
                 class="cell"

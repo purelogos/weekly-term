@@ -95,6 +95,7 @@ function app() {
             return {
               ...member,
               assignmentId: assign.id,
+              memo: assign.memo || '',
               weeks: weeks,
               activeProjectCount: activeProjectCount,
               startDate: dateRange.start,
@@ -222,10 +223,12 @@ function app() {
         await db.assignments.add({
           memberId: memberId,
           projectId: projectId,
-          weeks: []
+          weeks: [],
+          memo: ''
         });
       }
 
+      this.expandedProjects.add(projectId);
       this.newMember = { memberId: null };
       this.addMemberTargetProjectId = null;
       this.showAddMemberModal = false;
@@ -248,13 +251,24 @@ function app() {
         await db.assignments.add({
           memberId,
           projectId: this.addMemberTargetProjectId,
-          weeks: []
+          weeks: [],
+          memo: ''
         });
+        this.expandedProjects.add(this.addMemberTargetProjectId);
       }
 
       this.createMember = { name: '', department: '', grade: '' };
       this.showCreateMemberModal = false;
+      this.addMemberTargetProjectId = null;
       await this.loadTimeline();
+    },
+
+    async updateMemo(assignmentId, value) {
+      await db.assignments.update(assignmentId, { memo: value });
+      for (const project of this.projects) {
+        const m = project.members.find(mm => mm.assignmentId === assignmentId);
+        if (m) { m.memo = value; break; }
+      }
     },
 
     async selectMember(memberId) {

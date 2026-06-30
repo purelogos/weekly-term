@@ -131,9 +131,22 @@ body {
 /* === TIMELINE GRID === */
 .timeline-grid {
   display: grid;
-  grid-template-columns: 220px 50px 100px 100px repeat(52, 28px);
+  grid-template-columns: 220px 50px 100px 100px 160px repeat(52, 28px);
   gap: 0;
   width: max-content;
+}
+
+.memo-cell input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  padding: 2px 6px;
+  color: #1f2937;
+  outline: none;
+}
+.memo-cell input:focus {
+  background: #fef3c7;
 }
 
 .header-row {
@@ -151,7 +164,7 @@ body {
   overflow: auto;
   background: white;
   display: grid;
-  grid-template-columns: 220px 50px 100px 100px repeat(52, 28px);
+  grid-template-columns: 220px 50px 100px 100px 160px repeat(52, 28px);
   gap: 0;
   width: max-content;
   align-content: start;
