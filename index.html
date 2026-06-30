@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>주간 인력 관리 - 타임라인</title>
+
+  <!-- Day.js + plugins (sync, before Alpine) -->
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.21/dayjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.21/plugin/isoWeek.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.21/plugin/weekOfYear.js"></script>
+
+  <!-- Dexie.js (sync, must load before Alpine) -->
+  <script src="https://cdn.jsdelivr.net/npm/dexie@4.4.4/dist/dexie.js"></script>
+
+  <!-- Alpine.js (defer - loads last after Dexie is ready) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.15.12/dist/cdn.min.js"></script>
+
+  <!-- App styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body x-data="app()" x-init="await init(); $watch('projects', () => {}, { deep: true })" @selectstart.prevent>
+
+  <!-- HEADER -->
+  <header class="app-header">
+    <div class="header-left">
+      <h1>📊 인력 관리 타임라인</h1>
+      <div class="year-nav">
+        <button @click="prevYear()" class="btn-icon">◀</button>
+        <span class="year-display" x-text="`${currentYear}년`"></span>
+        <button @click="nextYear()" class="btn-icon">▶</button>
+      </div>
+    </div>
+    <div class="header-right">
+      <button @click="showAddProjectModal = true" class="btn btn-primary">+ 프로젝트</button>
+      <button @click="exportJSON()" class="btn">내보내기</button>
+      <button @click="importJSON()" class="btn">가져오기</button>
+      <input type="file" id="import-file" accept=".json" @change="handleFileImport" style="display:none;">
+    </div>
+  </header>
+
+  <!-- MAIN TIMELINE GRID -->
+  <main class="timeline-container">
+    <!-- HEADER ROW (weeks) -->
+    <div class="timeline-grid header-row">
+      <div class="name-cell header-name">프로젝트 / 구성원</div>
+      <div class="cell header-cell header-info">프로젝트</div>
+      <div class="cell header-cell header-info" style="min-width: 100px;">시작날짜</div>
+      <div class="cell header-cell header-info" style="min-width: 100px;">종료날짜</div>
+      <template x-for="(week, idx) in weekHeaders" :key="idx">
+        <div class="cell header-cell" x-text="week"></div>
+      </template>
+    </div>
+
+    <!-- PROJECT ROWS + MEMBER SUB-ROWS -->
+    <div class="timeline-rows">
+      <template x-for="project in projects" :key="project.id">
+        <!-- PROJECT ROW -->
+        <div class="row project-row" :style="`--project-color: ${project.color};`">
+          <div class="name-cell project-name" @click="toggleProject(project.id)">
+            <span x-show="expandedProjects.has(project.id)">▼</span>
+            <span x-show="!expandedProjects.has(project.id)">▶</span>
+            <span x-text="project.name"></span>
+            <button @click.stop="addMemberTargetProjectId = project.id; showAddMemberModal = true;" class="btn-icon-small">+ 구성원</button>
+          </div>
+          <div class="cell info-cell"></div>
+          <div class="cell info-cell"></div>
+          <div class="cell info-cell"></div>
+          <template x-for="(week, weekIdx) in weekHeaders" :key="`project-${project.id}-${weekIdx}`">
+            <div
+              class="cell"
+              :class="{
+                'filled': isProjectWeekFilled(project.id, weekIdx),
+                'preview': isProjectCellInDragPreview(project.id, weekIdx)
+              }"
+              @mousedown="startDrag('project', project.id, weekIdx)"
+              @mouseover="updateDragPreview('project', project.id, weekIdx)"
+            ></div>
+          </template>
+        </div>
+
+        <!-- MEMBER ROWS (shown when project expanded) -->
+        <template x-if="expandedProjects.has(project.id)" x-for="member in project.members" :key="`member-${project.id}-${member.id}`">
+          <div class="row member-row" :style="`--project-color: ${project.color};`">
+            <div class="name-cell member-name" @click="selectMember(member.id)">
+              <span x-text="member.name"></span>
+            </div>
+            <div class="cell info-cell project-count">
+              <span x-text="member.activeProjectCount" class="badge-count"></span>
+            </div>
+            <div class="cell info-cell date-cell" x-text="member.startDate"></div>
+            <div class="cell info-cell date-cell" x-text="member.endDate"></div>
+            <template x-for="(week, weekIdx) in weekHeaders" :key="`member-${project.id}-${member.id}-${weekIdx}`">
+              <div
+                class="cell"
+                :class="{
+                  'filled': isMemberWeekFilled(project.id, member.id, weekIdx),
+                  'preview': isMemberCellInDragPreview(project.id, member.id, weekIdx)
+                }"
+                @mousedown="startDrag('member', `${project.id}-${member.id}`, weekIdx)"
+                @mouseover="updateDragPreview('member', `${project.id}-${member.id}`, weekIdx)"
+              ></div>
+            </template>
+          </div>
+        </template>
+      </template>
+    </div>
+  </main>
+
+  <!-- RIGHT PANEL: Member Detail (Slide-in) -->
+  <aside class="member-panel" :class="{'open': selectedMember !== null}">
+    <template x-if="selectedMember">
+      <div class="panel-content">
+        <button class="btn-close" @click="selectedMember = null">✕</button>
+        <h3 x-text="`${selectedMember.name} (${selectedMember.department})`"></h3>
+        <p class="member-grade" x-text="`직급: ${selectedMember.grade}`"></p>
+
+        <!-- Assignment History -->
+        <h4>배정 이력</h4>
+        <div class="history-table" x-show="memberAssignmentHistory.length > 0">
+          <template x-for="assign in memberAssignmentHistory" :key="assign.id">
+            <div class="history-row">
+              <span class="project-badge" x-text="`${assign.projectName}`"></span>
+              <span class="week-range" x-text="`${formatWeekRange(assign.weeks)}`"></span>
+            </div>
+          </template>
+        </div>
+        <p x-show="memberAssignmentHistory.length === 0" class="no-data">배정 없음</p>
+
+        <!-- Events Timeline -->
+        <h4>이벤트</h4>
+        <div class="events-list" x-show="memberEvents.length > 0">
+          <template x-for="evt in memberEvents" :key="evt.id">
+            <div class="event-item">
+              <span class="event-type" :class="`badge-${evt.type}`" x-text="evt.type"></span>
+              <span class="event-date" x-text="evt.date"></span>
+              <p class="event-note" x-text="evt.note || '(메모 없음)'"></p>
+            </div>
+          </template>
+        </div>
+        <p x-show="memberEvents.length === 0" class="no-data">이벤트 없음</p>
+
+        <!-- Log Event Button -->
+        <button @click="openLogEventModal(selectedMember.id)" class="btn btn-primary" style="width:100%; margin-top:20px;">
+          + 이벤트 기록
+        </button>
+      </div>
+    </template>
+  </aside>
+
+  <!-- MODALS -->
+  <!-- Add Project Modal -->
+  <div class="modal-backdrop" x-show="showAddProjectModal" @click.self="showAddProjectModal = false">
+    <div class="modal">
+      <h2>새 프로젝트</h2>
+      <form @submit.prevent="addProject" class="form">
+        <input type="text" placeholder="프로젝트명" x-model="newProject.name" required>
+        <select x-model="newProject.color" required>
+          <option value="#3b82f6">파랑</option>
+          <option value="#ef4444">빨강</option>
+          <option value="#10b981">초록</option>
+          <option value="#f59e0b">주황</option>
+          <option value="#8b5cf6">보라</option>
+          <option value="#ec4899">핑크</option>
+        </select>
+        <button type="submit" class="btn btn-primary">생성</button>
+        <button type="button" @click="showAddProjectModal = false" class="btn">취소</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Member Modal -->
+  <div class="modal-backdrop" x-show="showAddMemberModal" @click.self="showAddMemberModal = false">
+    <div class="modal">
+      <h2>새 구성원 추가</h2>
+      <form @submit.prevent="addMemberToProject" class="form">
+        <select x-model="newMember.memberId">
+          <option value="">기존 구성원 선택</option>
+          <template x-for="m in allMembers" :key="m.id">
+            <option :value="m.id" x-text="`${m.name} (${m.department})`"></option>
+          </template>
+        </select>
+        <button type="button" @click="showAddMemberModal = false; showCreateMemberModal = true;" class="btn">+ 새 구성원 생성</button>
+        <button type="submit" class="btn btn-primary" :disabled="!newMember.memberId">목록에서 추가</button>
+        <button type="button" @click="showAddMemberModal = false" class="btn">취소</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Create New Member Modal -->
+  <div class="modal-backdrop" x-show="showCreateMemberModal" @click.self="showCreateMemberModal = false">
+    <div class="modal">
+      <h2>새 구성원 생성</h2>
+      <form @submit.prevent="createNewMember" class="form">
+        <input type="text" placeholder="이름" x-model="createMember.name" required>
+        <input type="text" placeholder="부서" x-model="createMember.department" required>
+        <select x-model="createMember.grade" required>
+          <option value="">직급 선택</option>
+          <option value="사원">사원</option>
+          <option value="주임">주임</option>
+          <option value="대리">대리</option>
+          <option value="과장">과장</option>
+          <option value="차장">차장</option>
+          <option value="부장">부장</option>
+        </select>
+        <button type="submit" class="btn btn-primary">생성</button>
+        <button type="button" @click="showCreateMemberModal = false" class="btn">취소</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Log Event Modal -->
+  <div class="modal-backdrop" x-show="showLogEventModal" @click.self="showLogEventModal = false">
+    <div class="modal">
+      <h2>이벤트 기록</h2>
+      <form @submit.prevent="logEvent" class="form">
+        <fieldset>
+          <legend>이벤트 타입</legend>
+          <label>
+            <input type="radio" name="event-type" value="전배" x-model="logEventForm.type">
+            전배 (부서 이동)
+          </label>
+          <label>
+            <input type="radio" name="event-type" value="이동" x-model="logEventForm.type">
+            이동 (프로젝트 이동)
+          </label>
+          <label>
+            <input type="radio" name="event-type" value="평가" x-model="logEventForm.type">
+            평가 (성과 평가)
+          </label>
+        </fieldset>
+        <input type="date" x-model="logEventForm.date" required>
+        <textarea placeholder="메모" x-model="logEventForm.note"></textarea>
+        <input type="number" min="1" max="5" placeholder="점수 (평가일 때)" x-model.number="logEventForm.score">
+        <button type="submit" class="btn btn-primary">기록</button>
+        <button type="button" @click="showLogEventModal = false" class="btn">취소</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="app.js"></script>
+</body>
+</html>

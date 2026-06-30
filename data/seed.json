@@ -1,0 +1,211 @@
+{
+  "members": [
+    {
+      "id": 1,
+      "name": "김철수",
+      "department": "개발1팀",
+      "grade": "과장",
+      "status": "active",
+      "skills": ["React", "Node.js"]
+    },
+    {
+      "id": 2,
+      "name": "이영희",
+      "department": "개발1팀",
+      "grade": "대리",
+      "status": "active",
+      "skills": ["Vue", "Python"]
+    },
+    {
+      "id": 3,
+      "name": "박민수",
+      "department": "개발2팀",
+      "grade": "주임",
+      "status": "active",
+      "skills": ["Go", "Kubernetes"]
+    },
+    {
+      "id": 4,
+      "name": "최지은",
+      "department": "디자인팀",
+      "grade": "대리",
+      "status": "active",
+      "skills": ["UI/UX", "Figma"]
+    },
+    {
+      "id": 5,
+      "name": "정태양",
+      "department": "개발1팀",
+      "grade": "사원",
+      "status": "active",
+      "skills": ["JavaScript", "HTML/CSS"]
+    },
+    {
+      "id": 6,
+      "name": "문지선",
+      "department": "QA팀",
+      "grade": "대리",
+      "status": "active",
+      "skills": ["Selenium", "Test Automation"]
+    },
+    {
+      "id": 7,
+      "name": "강준호",
+      "department": "개발2팀",
+      "grade": "차장",
+      "status": "active",
+      "skills": ["Java", "Spring Boot"]
+    },
+    {
+      "id": 8,
+      "name": "신혜수",
+      "department": "디자인팀",
+      "grade": "사원",
+      "status": "active",
+      "skills": ["Product Design", "Prototyping"]
+    },
+    {
+      "id": 9,
+      "name": "윤성호",
+      "department": "인프라팀",
+      "grade": "과장",
+      "status": "active",
+      "skills": ["DevOps", "AWS", "Terraform"]
+    },
+    {
+      "id": 10,
+      "name": "조미래",
+      "department": "개발1팀",
+      "grade": "주임",
+      "status": "active",
+      "skills": ["React", "TypeScript"]
+    }
+  ],
+  "projects": [
+    {
+      "id": 1,
+      "name": "Project Alpha",
+      "year": 2026,
+      "color": "#3b82f6",
+      "sortOrder": 1
+    },
+    {
+      "id": 2,
+      "name": "Project Beta",
+      "year": 2026,
+      "color": "#ef4444",
+      "sortOrder": 2
+    },
+    {
+      "id": 3,
+      "name": "운영 지원",
+      "year": 2026,
+      "color": "#10b981",
+      "sortOrder": 3
+    }
+  ],
+  "assignments": [
+    {
+      "id": 1,
+      "memberId": 1,
+      "projectId": 1,
+      "weeks": ["2026-W10", "2026-W11", "2026-W12", "2026-W13", "2026-W14", "2026-W15"]
+    },
+    {
+      "id": 2,
+      "memberId": 2,
+      "projectId": 1,
+      "weeks": ["2026-W08", "2026-W09", "2026-W10", "2026-W11", "2026-W12", "2026-W13", "2026-W14", "2026-W15", "2026-W16"]
+    },
+    {
+      "id": 3,
+      "memberId": 3,
+      "projectId": 2,
+      "weeks": ["2026-W18", "2026-W19", "2026-W20", "2026-W21", "2026-W22", "2026-W23"]
+    },
+    {
+      "id": 4,
+      "memberId": 4,
+      "projectId": 1,
+      "weeks": ["2026-W14", "2026-W15", "2026-W16"]
+    },
+    {
+      "id": 5,
+      "memberId": 5,
+      "projectId": 2,
+      "weeks": ["2026-W20", "2026-W21", "2026-W22"]
+    },
+    {
+      "id": 6,
+      "memberId": 6,
+      "projectId": 3,
+      "weeks": ["2026-W01", "2026-W02", "2026-W03", "2026-W04", "2026-W05", "2026-W06", "2026-W07", "2026-W08", "2026-W09", "2026-W10"]
+    },
+    {
+      "id": 7,
+      "memberId": 7,
+      "projectId": 2,
+      "weeks": ["2026-W16", "2026-W17", "2026-W18", "2026-W19", "2026-W20"]
+    },
+    {
+      "id": 8,
+      "memberId": 8,
+      "projectId": 1,
+      "weeks": ["2026-W12", "2026-W13"]
+    },
+    {
+      "id": 9,
+      "memberId": 9,
+      "projectId": 3,
+      "weeks": ["2026-W01", "2026-W02", "2026-W03", "2026-W04", "2026-W05", "2026-W06", "2026-W07", "2026-W08", "2026-W09", "2026-W10", "2026-W11", "2026-W12"]
+    },
+    {
+      "id": 10,
+      "memberId": 10,
+      "projectId": 1,
+      "weeks": ["2026-W11", "2026-W12", "2026-W13", "2026-W14"]
+    }
+  ],
+  "events": [
+    {
+      "id": 1,
+      "memberId": 3,
+      "type": "전배",
+      "date": "2026-06-15",
+      "fromProject": 1,
+      "toProject": 2,
+      "note": "개발팀에서 프로젝트 2로 발령",
+      "score": null
+    },
+    {
+      "id": 2,
+      "memberId": 1,
+      "type": "평가",
+      "date": "2026-06-20",
+      "fromProject": null,
+      "toProject": null,
+      "note": "상반기 성과평가 - 우수한 리더십 발휘",
+      "score": 5
+    },
+    {
+      "id": 3,
+      "memberId": 2,
+      "type": "평가",
+      "date": "2026-06-20",
+      "fromProject": null,
+      "toProject": null,
+      "note": "상반기 성과평가 - 기술력 탁월",
+      "score": 5
+    },
+    {
+      "id": 4,
+      "memberId": 7,
+      "type": "이동",
+      "date": "2026-06-10",
+      "fromProject": 1,
+      "toProject": 2,
+      "note": "프로젝트 2 PM 담당",
+      "score": null
+    }
+  ]
+}

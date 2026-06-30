@@ -1,0 +1,4 @@
+weekly-staff-export-*.json
+weekly-report-*.html
+.DS_Store
+*.log

@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>주간 인력 관리 - 타임라인 (오프라인)</title>
+
+  <!-- CDN: Day.js + plugins -->
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.21/dayjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.21/plugin/isoWeek.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.21/plugin/weekOfYear.js"></script>
+
+  <!-- CDN: Dexie.js -->
+  <script src="https://cdn.jsdelivr.net/npm/dexie@4.4.4/dist/dexie.js"></script>
+
+  <!-- CDN: Alpine.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.15.12/dist/cdn.min.js"></script>
+
+  <style>
+/* === RESET & BASE === */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f5f7fa;
+  color: #1e293b;
+  overflow: hidden;
+}
+
+/* === HEADER === */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: white;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.header-left h1 {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.year-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.year-display {
+  font-weight: 600;
+  font-size: 14px;
+  min-width: 60px;
+  text-align: center;
+}
+
+.header-right {
+  display: flex;
+  gap: 8px;
+}
+
+/* === BUTTONS === */
+.btn {
+  padding: 8px 16px;
+  border: 1px solid #cbd5e1;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.btn-primary {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.btn-primary:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.btn-icon {
+  padding: 4px 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.btn-icon-small {
+  padding: 4px 8px;
+  background: #dbeafe;
+  border: 1px solid #93c5fd;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #1e40af;
+  font-weight: 500;
+  margin-left: 8px;
+  transition: all 0.2s;
+}
+
+.btn-icon-small:hover {
+  background: #bfdbfe;
+  border-color: #60a5fa;
+}
+
+.btn-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+/* === TIMELINE CONTAINER === */
+.timeline-container {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 64px - 20px);
+  background: white;
+  overflow: hidden;
+}
+
+/* === TIMELINE GRID === */
+.timeline-grid {
+  display: grid;
+  grid-template-columns: 220px 50px 100px 100px repeat(52, 28px);
+  gap: 0;
+  width: max-content;
+}
+
+.header-row {
+  flex-shrink: 0;
+  background: #1e293b;
+  color: white;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-bottom: 2px solid #0f172a;
+}
+
+.timeline-rows {
+  flex: 1;
+  overflow: auto;
+  background: white;
+  display: grid;
+  grid-template-columns: 220px 50px 100px 100px repeat(52, 28px);
+  gap: 0;
+  width: max-content;
+  align-content: start;
+}
+
+/* === ROW STYLES === */
+.row {
+  display: contents;
+}
+
+.cell {
+  height: 32px;
+  border: 1px solid #e2e8f0;
+  cursor: crosshair;
+  user-select: none;
+  position: relative;
+  transition: all 0.15s;
+}
+
+.cell.filled {
+  background: var(--project-color, #3b82f6);
+  opacity: 0.85;
+  border-color: var(--project-color, #3b82f6);
+}
+
+.cell.preview {
+  background: var(--project-color, #3b82f6);
+  opacity: 0.35;
+  border-color: var(--project-color, #3b82f6);
+}
+
+/* === NAME CELLS === */
+.name-cell {
+  position: sticky;
+  left: 0;
+  z-index: 15;
+  background: white;
+  border-right: 2px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 13px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.header-name {
+  background: #1e293b;
+  color: white;
+  font-weight: 600;
+  z-index: 30;
+}
+
+.header-cell {
+  background: #1e293b;
+  color: white;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+}
+
+.header-info {
+  background: #0f172a;
+  font-size: 12px;
+  padding: 0 8px;
+}
+
+.info-cell {
+  background: #f8fafc;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  padding: 0 6px;
+  border-right: 1px solid #e2e8f0;
+}
+
+.date-cell {
+  color: #475569;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+}
+
+.project-count {
+  position: relative;
+}
+
+.badge-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #3b82f6;
+  color: white;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.project-name {
+  background: #1e293b;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  padding: 0 8px;
+}
+
+.project-name:hover {
+  background: #0f172a;
+}
+
+.member-name {
+  padding-left: 36px;
+  cursor: pointer;
+  color: #2563eb;
+  font-weight: 500;
+}
+
+.member-name:hover {
+  text-decoration: underline;
+  background: #f0f9ff;
+}
+
+/* === MODALS & PANELS === */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(2px);
+}
+
+.modal {
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  min-width: 400px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+}
+
+.modal h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form input,
+.form select,
+.form textarea {
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.form textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.form fieldset {
+  border: none;
+  padding: 0;
+  margin: 8px 0;
+}
+
+.form legend {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.form label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin: 4px 0;
+  cursor: pointer;
+}
+
+.form button {
+  margin-top: 4px;
+}
+
+/* === MEMBER PANEL === */
+.member-panel {
+  position: fixed;
+  right: 0;
+  top: 64px;
+  width: 380px;
+  height: calc(100vh - 64px);
+  background: white;
+  border-left: 1px solid #e2e8f0;
+  box-shadow: -2px 0 8px rgba(0,0,0,0.08);
+  transform: translateX(100%);
+  transition: transform 0.3s ease-out;
+  z-index: 50;
+  overflow-y: auto;
+}
+
+.member-panel.open {
+  transform: translateX(0);
+}
+
+.panel-content {
+  padding: 20px;
+  position: relative;
+}
+
+.panel-content h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 24px;
+  margin-bottom: 4px;
+}
+
+.member-grade {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 16px;
+}
+
+.panel-content h4 {
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 16px;
+  margin-bottom: 8px;
+  color: #475569;
+}
+
+.history-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.history-row {
+  padding: 8px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.project-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  background: var(--project-color, #3b82f6);
+  color: white;
+  border-radius: 3px;
+  font-weight: 500;
+  font-size: 11px;
+}
+
+.week-range {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.event-item {
+  padding: 8px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  border-left: 3px solid #94a3b8;
+}
+
+.event-type {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  color: white;
+  margin-right: 6px;
+}
+
+.badge-전배 {
+  background: #ef4444;
+}
+
+.badge-이동 {
+  background: #f59e0b;
+}
+
+.badge-평가 {
+  background: #10b981;
+}
+
+.event-date {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.event-note {
+  font-size: 12px;
+  margin-top: 4px;
+  color: #475569;
+  margin: 0;
+}
+
+.no-data {
+  font-size: 12px;
+  color: #94a3b8;
+  font-style: italic;
+  margin: 8px 0;
+}
+
+/* === SCROLLBARS === */
+.timeline-rows::-webkit-scrollbar,
+.member-panel::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.timeline-rows::-webkit-scrollbar-track,
+.member-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.timeline-rows::-webkit-scrollbar-thumb,
+.member-panel::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.timeline-rows::-webkit-scrollbar-thumb:hover,
+.member-panel::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+  </style>
+</head>
+<body x-data="app()" x-init="await init(); $watch('projects', () => {}, { deep: true })" @selectstart.prevent>
+
+
+
+  <!-- HEADER -->
+  <header class="app-header">
+    <div class="header-left">
+      <h1>📊 인력 관리 타임라인</h1>
+      <div class="year-nav">
+        <button @click="prevYear()" class="btn-icon">◀</button>
+        <span class="year-display" x-text="`${currentYear}년`"></span>
+        <button @click="nextYear()" class="btn-icon">▶</button>
+      </div>
+    </div>
+    <div class="header-right">
+      <button @click="showAddProjectModal = true" class="btn btn-primary">+ 프로젝트</button>
+      <button @click="exportJSON()" class="btn">내보내기</button>
+      <button @click="importJSON()" class="btn">가져오기</button>
+      <input type="file" id="import-file" accept=".json" @change="handleFileImport" style="display:none;">
+    </div>
+  </header>
+
+  <!-- MAIN TIMELINE GRID -->
+  <main class="timeline-container">
+    <!-- HEADER ROW (weeks) -->
+    <div class="timeline-grid header-row">
+      <div class="name-cell header-name">프로젝트 / 구성원</div>
+      <div class="cell header-cell header-info">프로젝트</div>
+      <div class="cell header-cell header-info" style="min-width: 100px;">시작날짜</div>
+      <div class="cell header-cell header-info" style="min-width: 100px;">종료날짜</div>
+      <template x-for="(week, idx) in weekHeaders" :key="idx">
+        <div class="cell header-cell" x-text="week"></div>
+      </template>
+    </div>
+
+    <!-- PROJECT ROWS + MEMBER SUB-ROWS -->
+    <div class="timeline-rows">
+      <template x-for="project in projects" :key="project.id">
+        <!-- PROJECT ROW -->
+        <div class="row project-row" :style="`--project-color: ${project.color};`">
+          <div class="name-cell project-name" @click="toggleProject(project.id)">
+            <span x-show="expandedProjects.has(project.id)">▼</span>
+            <span x-show="!expandedProjects.has(project.id)">▶</span>
+            <span x-text="project.name"></span>
+            <button @click.stop="addMemberTargetProjectId = project.id; showAddMemberModal = true;" class="btn-icon-small">+ 구성원</button>
+          </div>
+          <div class="cell info-cell"></div>
+          <div class="cell info-cell"></div>
+          <div class="cell info-cell"></div>
+          <template x-for="(week, weekIdx) in weekHeaders" :key="`project-${project.id}-${weekIdx}`">
+            <div
+              class="cell"
+              :class="{
+                'filled': isProjectWeekFilled(project.id, weekIdx),
+                'preview': isProjectCellInDragPreview(project.id, weekIdx)
+              }"
+              @mousedown="startDrag('project', project.id, weekIdx)"
+              @mouseover="updateDragPreview('project', project.id, weekIdx)"
+            ></div>
+          </template>
+        </div>
+
+        <!-- MEMBER ROWS (shown when project expanded) -->
+        <template x-if="expandedProjects.has(project.id)" x-for="member in project.members" :key="`member-${project.id}-${member.id}`">
+          <div class="row member-row" :style="`--project-color: ${project.color};`">
+            <div class="name-cell member-name" @click="selectMember(member.id)">
+              <span x-text="member.name"></span>
+            </div>
+            <div class="cell info-cell project-count">
+              <span x-text="member.activeProjectCount" class="badge-count"></span>
+            </div>
+            <div class="cell info-cell date-cell" x-text="member.startDate"></div>
+            <div class="cell info-cell date-cell" x-text="member.endDate"></div>
+            <template x-for="(week, weekIdx) in weekHeaders" :key="`member-${project.id}-${member.id}-${weekIdx}`">
+              <div
+                class="cell"
+                :class="{
+                  'filled': isMemberWeekFilled(project.id, member.id, weekIdx),
+                  'preview': isMemberCellInDragPreview(project.id, member.id, weekIdx)
+                }"
+                @mousedown="startDrag('member', `${project.id}-${member.id}`, weekIdx)"
+                @mouseover="updateDragPreview('member', `${project.id}-${member.id}`, weekIdx)"
+              ></div>
+            </template>
+          </div>
+        </template>
+      </template>
+    </div>
+  </main>
+
+  <!-- RIGHT PANEL: Member Detail (Slide-in) -->
+  <aside class="member-panel" :class="{'open': selectedMember !== null}">
+    <template x-if="selectedMember">
+      <div class="panel-content">
+        <button class="btn-close" @click="selectedMember = null">✕</button>
+        <h3 x-text="`${selectedMember.name} (${selectedMember.department})`"></h3>
+        <p class="member-grade" x-text="`직급: ${selectedMember.grade}`"></p>
+
+        <!-- Assignment History -->
+        <h4>배정 이력</h4>
+        <div class="history-table" x-show="memberAssignmentHistory.length > 0">
+          <template x-for="assign in memberAssignmentHistory" :key="assign.id">
+            <div class="history-row">
+              <span class="project-badge" x-text="`${assign.projectName}`"></span>
+              <span class="week-range" x-text="`${formatWeekRange(assign.weeks)}`"></span>
+            </div>
+          </template>
+        </div>
+        <p x-show="memberAssignmentHistory.length === 0" class="no-data">배정 없음</p>
+
+        <!-- Events Timeline -->
+        <h4>이벤트</h4>
+        <div class="events-list" x-show="memberEvents.length > 0">
+          <template x-for="evt in memberEvents" :key="evt.id">
+            <div class="event-item">
+              <span class="event-type" :class="`badge-${evt.type}`" x-text="evt.type"></span>
+              <span class="event-date" x-text="evt.date"></span>
+              <p class="event-note" x-text="evt.note || '(메모 없음)'"></p>
+            </div>
+          </template>
+        </div>
+        <p x-show="memberEvents.length === 0" class="no-data">이벤트 없음</p>
+
+        <!-- Log Event Button -->
+        <button @click="openLogEventModal(selectedMember.id)" class="btn btn-primary" style="width:100%; margin-top:20px;">
+          + 이벤트 기록
+        </button>
+      </div>
+    </template>
+  </aside>
+
+  <!-- MODALS -->
+  <!-- Add Project Modal -->
+  <div class="modal-backdrop" x-show="showAddProjectModal" @click.self="showAddProjectModal = false">
+    <div class="modal">
+      <h2>새 프로젝트</h2>
+      <form @submit.prevent="addProject" class="form">
+        <input type="text" placeholder="프로젝트명" x-model="newProject.name" required>
+        <select x-model="newProject.color" required>
+          <option value="#3b82f6">파랑</option>
+          <option value="#ef4444">빨강</option>
+          <option value="#10b981">초록</option>
+          <option value="#f59e0b">주황</option>
+          <option value="#8b5cf6">보라</option>
+          <option value="#ec4899">핑크</option>
+        </select>
+        <button type="submit" class="btn btn-primary">생성</button>
+        <button type="button" @click="showAddProjectModal = false" class="btn">취소</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Member Modal -->
+  <div class="modal-backdrop" x-show="showAddMemberModal" @click.self="showAddMemberModal = false">
+    <div class="modal">
+      <h2>새 구성원 추가</h2>
+      <form @submit.prevent="addMemberToProject" class="form">
+        <select x-model="newMember.memberId">
+          <option value="">기존 구성원 선택</option>
+          <template x-for="m in allMembers" :key="m.id">
+            <option :value="m.id" x-text="`${m.name} (${m.department})`"></option>
+          </template>
+        </select>
+        <button type="button" @click="showAddMemberModal = false; showCreateMemberModal = true;" class="btn">+ 새 구성원 생성</button>
+        <button type="submit" class="btn btn-primary" :disabled="!newMember.memberId">목록에서 추가</button>
+        <button type="button" @click="showAddMemberModal = false" class="btn">취소</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Create New Member Modal -->
+  <div class="modal-backdrop" x-show="showCreateMemberModal" @click.self="showCreateMemberModal = false">
+    <div class="modal">
+      <h2>새 구성원 생성</h2>
+      <form @submit.prevent="createNewMember" class="form">
+        <input type="text" placeholder="이름" x-model="createMember.name" required>
+        <input type="text" placeholder="부서" x-model="createMember.department" required>
+        <select x-model="createMember.grade" required>
+          <option value="">직급 선택</option>
+          <option value="사원">사원</option>
+          <option value="주임">주임</option>
+          <option value="대리">대리</option>
+          <option value="과장">과장</option>
+          <option value="차장">차장</option>
+          <option value="부장">부장</option>
+        </select>
+        <button type="submit" class="btn btn-primary">생성</button>
+        <button type="button" @click="showCreateMemberModal = false" class="btn">취소</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Log Event Modal -->
+  <div class="modal-backdrop" x-show="showLogEventModal" @click.self="showLogEventModal = false">
+    <div class="modal">
+      <h2>이벤트 기록</h2>
+      <form @submit.prevent="logEvent" class="form">
+        <fieldset>
+          <legend>이벤트 타입</legend>
+          <label>
+            <input type="radio" name="event-type" value="전배" x-model="logEventForm.type">
+            전배 (부서 이동)
+          </label>
+          <label>
+            <input type="radio" name="event-type" value="이동" x-model="logEventForm.type">
+            이동 (프로젝트 이동)
+          </label>
+          <label>
+            <input type="radio" name="event-type" value="평가" x-model="logEventForm.type">
+            평가 (성과 평가)
+          </label>
+        </fieldset>
+        <input type="date" x-model="logEventForm.date" required>
+        <textarea placeholder="메모" x-model="logEventForm.note"></textarea>
+        <input type="number" min="1" max="5" placeholder="점수 (평가일 때)" x-model.number="logEventForm.score">
+        <button type="submit" class="btn btn-primary">기록</button>
+        <button type="button" @click="showLogEventModal = false" class="btn">취소</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="app.js"></script>
+
+  <script>
+// === DAY.JS PLUGIN REGISTRATION (must be before app() definition) ===
+// Wait for Day.js plugins to load (they're loaded from CDN)
+if (typeof dayjs_plugin_isoWeek !== 'undefined') {
+  dayjs.extend(dayjs_plugin_isoWeek);
+}
+if (typeof dayjs_plugin_weekOfYear !== 'undefined') {
+  dayjs.extend(dayjs_plugin_weekOfYear);
+}
+
+// === DEXIE.JS INITIALIZATION ===
+const db = new Dexie('WeeklyStaffDB');
+db.version(1).stores({
+  members:     '++id, name, department, grade, status',
+  projects:    '++id, name, year, sortOrder',
+  assignments: '++id, [memberId+projectId], memberId, projectId',
+  events:      '++id, memberId, type, date'
+});
+
+// === ALPINE.JS APP ===
+function app() {
+  return {
+    // ========== STATE ==========
+    currentYear: new Date().getFullYear(),
+    weekHeaders: [],
+
+    // Projects with members loaded
+    projects: [],
+    allMembers: [],
+    expandedProjects: new Set(),
+
+    // Drag state
+    drag: {
+      active: false,
+      rowType: null,     // 'project' | 'member'
+      rowId: null,       // projectId or 'projectId-memberId'
+      startWeek: null,   // week index 0-51
+      endWeek: null,
+      mode: 'fill'       // 'fill' | 'erase'
+    },
+
+    // Right panel
+    selectedMember: null,
+    memberAssignmentHistory: [],
+    memberEvents: [],
+
+    // Modals
+    showAddProjectModal: false,
+    showAddMemberModal: false,
+    showCreateMemberModal: false,
+    showLogEventModal: false,
+    addMemberTargetProjectId: null,
+    logEventTargetMemberId: null,
+
+    // Form data
+    newProject: { name: '', color: '#3b82f6' },
+    newMember: { memberId: null },
+    createMember: { name: '', department: '', grade: '' },
+    logEventForm: { type: '전배', date: dayjs().format('YYYY-MM-DD'), note: '', score: null },
+
+    // ========== INITIALIZATION ==========
+    async init() {
+      appInstance = this;  // Register global reference
+      this.weekHeaders = Array.from({ length: 52 }, (_, i) =>
+        `W${String(i + 1).padStart(2, '0')}`
+      );
+      await this.loadTimeline();
+    },
+
+    async loadTimeline() {
+      try {
+        const projects = await db.projects.where('year').equals(this.currentYear).toArray();
+        const assignments = await db.assignments.toArray();
+        const members = await db.members.toArray();
+
+        this.allMembers = members;
+        const today = dayjs().format('YYYY-MM-DD');
+
+        // Build projects with members
+        const newProjects = projects.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map(project => {
+          const projectAssignments = assignments.filter(a => a.projectId === project.id);
+          const projectMembers = projectAssignments.map(assign => {
+            const member = members.find(m => m.id === assign.memberId);
+            const weeks = new Set(assign.weeks || []);
+
+            // Calculate active project count for today (current date)
+            const activeProjectCount = assignments.filter(a => a.memberId === assign.memberId)
+              .filter(a => {
+                const projAssign = assignments.find(x => x.id === a.id);
+                return projAssign && projAssign.weeks.some(w => this.isWeekInCurrentDate(w));
+              }).length;
+
+            // Calculate start and end dates
+            const dateRange = this.calculateDateRange(weeks);
+
+            return {
+              ...member,
+              assignmentId: assign.id,
+              weeks: weeks,
+              activeProjectCount: activeProjectCount,
+              startDate: dateRange.start,
+              endDate: dateRange.end
+            };
+          });
+
+          return {
+            ...project,
+            members: projectMembers,
+            weeks: new Set() // will be computed from assignments
+          };
+        });
+
+        // Force Alpine reactivity by replacing the entire array
+        this.projects = [];
+        await new Promise(r => setTimeout(r, 0));
+        this.projects = newProjects;
+      } catch (err) {
+        console.error('Error loading timeline:', err);
+      }
+    },
+
+    isWeekInCurrentDate(weekKey) {
+      // Check if current date falls within the given ISO week (Mon-Fri)
+      const today = dayjs();
+      try {
+        // Parse YYYY-WXX format
+        const match = weekKey.match(/(\d{4})-W(\d{2})/);
+        if (!match) return false;
+        const year = parseInt(match[1]);
+        const week = parseInt(match[2]);
+
+        // Calculate the Monday of the given week
+        const jan4 = dayjs(`${year}-01-04`, 'YYYY-MM-DD');
+        const weekStart = jan4.startOf('week').add(week - 1, 'week');
+        const weekEnd = weekStart.add(4, 'day'); // Friday
+
+        return today.isSameOrAfter(weekStart) && today.isSameOrBefore(weekEnd);
+      } catch (err) {
+        return false;
+      }
+    },
+
+    calculateDateRange(weeks) {
+      if (!weeks || weeks.size === 0) return { start: '-', end: '-' };
+
+      try {
+        const sortedWeeks = Array.from(weeks).sort();
+        const firstWeek = sortedWeeks[0];
+        const lastWeek = sortedWeeks[sortedWeeks.length - 1];
+
+        // Parse first week (Monday)
+        const firstMatch = firstWeek.match(/(\d{4})-W(\d{2})/);
+        const firstYear = parseInt(firstMatch[1]);
+        const firstWk = parseInt(firstMatch[2]);
+        const firstJan4 = dayjs(`${firstYear}-01-04`, 'YYYY-MM-DD');
+        const firstMonday = firstJan4.startOf('week').add(firstWk - 1, 'week').format('YYYY-MM-DD');
+
+        // Parse last week (Friday)
+        const lastMatch = lastWeek.match(/(\d{4})-W(\d{2})/);
+        const lastYear = parseInt(lastMatch[1]);
+        const lastWk = parseInt(lastMatch[2]);
+        const lastJan4 = dayjs(`${lastYear}-01-04`, 'YYYY-MM-DD');
+        const lastFriday = lastJan4.startOf('week').add(lastWk - 1, 'week').add(4, 'day').format('YYYY-MM-DD');
+
+        return { start: firstMonday, end: lastFriday };
+      } catch (err) {
+        return { start: '-', end: '-' };
+      }
+    },
+
+    // ========== WEEK INDEX ↔ WEEK KEY CONVERSION ==========
+    weekIdxToKey(idx) {
+      // Fallback: year-W01 to year-W52 (simple sequential numbering)
+      return `${this.currentYear}-W${String(idx + 1).padStart(2, '0')}`;
+    },
+
+    weekKeyToIdx(weekKey) {
+      // Parse YYYY-WXX format directly
+      const match = weekKey.match(/\d+-W(\d+)/);
+      return match ? parseInt(match[1]) - 1 : 0;
+    },
+
+    // ========== PROJECT ACTIONS ==========
+    async addProject() {
+      if (!this.newProject.name.trim()) return;
+
+      const maxOrder = this.projects.length > 0
+        ? Math.max(...this.projects.map(p => p.sortOrder || 0))
+        : 0;
+
+      await db.projects.add({
+        name: this.newProject.name,
+        year: this.currentYear,
+        color: this.newProject.color,
+        sortOrder: maxOrder + 1
+      });
+
+      this.newProject = { name: '', color: '#3b82f6' };
+      this.showAddProjectModal = false;
+      await this.loadTimeline();
+    },
+
+    toggleProject(projectId) {
+      if (this.expandedProjects.has(projectId)) {
+        this.expandedProjects.delete(projectId);
+      } else {
+        this.expandedProjects.add(projectId);
+      }
+    },
+
+    // ========== MEMBER ACTIONS ==========
+    async addMemberToProject() {
+      if (!this.newMember.memberId || !this.addMemberTargetProjectId) return;
+
+      const memberId = parseInt(this.newMember.memberId);
+      const projectId = parseInt(this.addMemberTargetProjectId);
+
+      const existing = await db.assignments.where('[memberId+projectId]')
+        .equals([memberId, projectId])
+        .first();
+
+      if (!existing) {
+        await db.assignments.add({
+          memberId: memberId,
+          projectId: projectId,
+          weeks: []
+        });
+      }
+
+      this.newMember = { memberId: null };
+      this.addMemberTargetProjectId = null;
+      this.showAddMemberModal = false;
+      await this.loadTimeline();
+    },
+
+    async createNewMember() {
+      if (!this.createMember.name.trim() || !this.createMember.department.trim()) return;
+
+      const memberId = await db.members.add({
+        name: this.createMember.name,
+        department: this.createMember.department,
+        grade: this.createMember.grade,
+        status: 'active',
+        skills: []
+      });
+
+      // Optionally add to the target project if one was selected
+      if (this.addMemberTargetProjectId) {
+        await db.assignments.add({
+          memberId,
+          projectId: this.addMemberTargetProjectId,
+          weeks: []
+        });
+      }
+
+      this.createMember = { name: '', department: '', grade: '' };
+      this.showCreateMemberModal = false;
+      await this.loadTimeline();
+    },
+
+    async selectMember(memberId) {
+      const member = this.allMembers.find(m => m.id === memberId);
+      if (!member) return;
+
+      this.selectedMember = member;
+
+      // Load assignment history across all years and projects
+      const assignments = await db.assignments.where('memberId').equals(memberId).toArray();
+      const projects = await db.projects.toArray();
+
+      this.memberAssignmentHistory = assignments.map(assign => {
+        const project = projects.find(p => p.id === assign.projectId);
+        return {
+          ...assign,
+          projectName: project?.name || '(삭제된 프로젝트)',
+        };
+      });
+
+      // Load events
+      this.memberEvents = await db.events.where('memberId').equals(memberId).reverse().toArray();
+    },
+
+    openLogEventModal(memberId) {
+      this.logEventTargetMemberId = memberId;
+      this.showLogEventModal = true;
+      this.logEventForm = { type: '전배', date: this.getTodayDate(), note: '', score: null };
+    },
+
+    async logEvent() {
+      if (!this.logEventTargetMemberId) return;
+
+      await db.events.add({
+        memberId: this.logEventTargetMemberId,
+        type: this.logEventForm.type,
+        date: this.logEventForm.date,
+        note: this.logEventForm.note,
+        score: this.logEventForm.score,
+        fromProject: null,
+        toProject: null
+      });
+
+      this.showLogEventModal = false;
+      await this.selectMember(this.logEventTargetMemberId);
+    },
+
+    // ========== DRAG LOGIC ==========
+    startDrag(rowType, rowId, weekIdx) {
+      this.drag.active = true;
+      this.drag.rowType = rowType;
+      this.drag.rowId = rowId;
+      this.drag.startWeek = weekIdx;
+      this.drag.endWeek = weekIdx;
+
+      // Determine mode based on current cell state
+      if (rowType === 'project') {
+        this.drag.mode = this.isProjectWeekFilled(rowId, weekIdx) ? 'erase' : 'fill';
+      } else {
+        const [projId, memberId] = rowId.split('-');
+        this.drag.mode = this.isMemberWeekFilled(projId, memberId, weekIdx) ? 'erase' : 'fill';
+      }
+
+      document.addEventListener('mouseup', () => this.endDrag(), { once: true });
+    },
+
+    updateDragPreview(rowType, rowId, weekIdx) {
+      if (!this.drag.active || this.drag.rowType !== rowType || this.drag.rowId !== rowId) return;
+      this.drag.endWeek = weekIdx;
+    },
+
+    async endDrag() {
+      if (!this.drag.active) return;
+
+      const [start, end] = [
+        Math.min(this.drag.startWeek, this.drag.endWeek),
+        Math.max(this.drag.startWeek, this.drag.endWeek)
+      ];
+
+      await this.applyDragRange(this.drag.rowId, start, end, this.drag.mode);
+      this.drag.active = false;
+    },
+
+    async applyDragRange(rowId, startIdx, endIdx, mode) {
+      const weekKeys = [];
+      for (let i = startIdx; i <= endIdx; i++) {
+        weekKeys.push(this.weekIdxToKey(i));
+      }
+
+      if (this.drag.rowType === 'project') {
+        const project = this.projects.find(p => p.id === rowId);
+        if (!project) return;
+        if (project.members.length === 0) {
+          alert('이 프로젝트에 배정된 구성원이 없습니다. 먼저 구성원을 추가해 주세요.');
+          return;
+        }
+
+        for (const member of project.members) {
+          if (mode === 'fill') {
+            weekKeys.forEach(w => member.weeks.add(w));
+          } else {
+            weekKeys.forEach(w => member.weeks.delete(w));
+          }
+          await db.assignments.update(member.assignmentId, {
+            weeks: Array.from(member.weeks)
+          });
+        }
+        await this.loadTimeline();
+      } else {
+        // Update member weeks within project
+        const [projId, memberId] = rowId.split('-');
+        const project = this.projects.find(p => p.id === parseInt(projId));
+        const member = project?.members.find(m => m.id === parseInt(memberId));
+        if (!member) return;
+
+        if (mode === 'fill') {
+          weekKeys.forEach(w => member.weeks.add(w));
+        } else {
+          weekKeys.forEach(w => member.weeks.delete(w));
+        }
+
+        // Update DB
+        await db.assignments.update(member.assignmentId, {
+          weeks: Array.from(member.weeks)
+        });
+      }
+    },
+
+    isProjectWeekFilled(projectId, weekIdx) {
+      const project = this.projects.find(p => p.id === projectId);
+      if (!project) return false;
+      const weekKey = this.weekIdxToKey(weekIdx);
+      // Project is filled if ANY member is assigned in that week
+      return project.members.some(m => m.weeks.has(weekKey));
+    },
+
+    isMemberWeekFilled(projectId, memberId, weekIdx) {
+      const project = this.projects.find(p => p.id === projectId);
+      if (!project) return false;
+      const member = project.members.find(m => m.id === memberId);
+      if (!member) return false;
+      const weekKey = this.weekIdxToKey(weekIdx);
+      return member.weeks.has(weekKey);
+    },
+
+    isProjectCellInDragPreview(projectId, weekIdx) {
+      if (!this.drag.active || this.drag.rowType !== 'project' || this.drag.rowId !== projectId) return false;
+      const [s, e] = [
+        Math.min(this.drag.startWeek, this.drag.endWeek),
+        Math.max(this.drag.startWeek, this.drag.endWeek)
+      ];
+      return weekIdx >= s && weekIdx <= e;
+    },
+
+    isMemberCellInDragPreview(projectId, memberId, weekIdx) {
+      const rowId = `${projectId}-${memberId}`;
+      if (!this.drag.active || this.drag.rowType !== 'member' || this.drag.rowId !== rowId) return false;
+      const [s, e] = [
+        Math.min(this.drag.startWeek, this.drag.endWeek),
+        Math.max(this.drag.startWeek, this.drag.endWeek)
+      ];
+      return weekIdx >= s && weekIdx <= e;
+    },
+
+    // ========== YEAR NAVIGATION ==========
+    prevYear() {
+      this.currentYear--;
+      this.loadTimeline();
+    },
+
+    nextYear() {
+      this.currentYear++;
+      this.loadTimeline();
+    },
+
+    // ========== IMPORT / EXPORT ==========
+    async exportJSON() {
+      const [members, projects, assignments, events] = await Promise.all([
+        db.members.toArray(),
+        db.projects.toArray(),
+        db.assignments.toArray(),
+        db.events.toArray()
+      ]);
+
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        members,
+        projects,
+        assignments,
+        events
+      };
+
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `weekly-staff-export-${dayjs().format('YYYY-MM-DD')}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    },
+
+    importJSON() {
+      document.getElementById('import-file').click();
+    },
+
+    async handleFileImport(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const text = await file.text();
+      const payload = JSON.parse(text);
+
+      const confirmed = confirm(
+        `이 작업은 모든 데이터를 초기화하고 가져온 데이터로 덮어씁니다.\n계속하시겠습니까?`
+      );
+      if (!confirmed) return;
+
+      await db.transaction('rw', db.members, db.projects, db.assignments, db.events, async () => {
+        await db.members.clear();
+        await db.projects.clear();
+        await db.assignments.clear();
+        await db.events.clear();
+
+        if (payload.members?.length) await db.members.bulkAdd(payload.members);
+        if (payload.projects?.length) await db.projects.bulkAdd(payload.projects);
+        if (payload.assignments?.length) await db.assignments.bulkAdd(payload.assignments);
+        if (payload.events?.length) await db.events.bulkAdd(payload.events);
+      });
+
+      await this.loadTimeline();
+      document.getElementById('import-file').value = '';
+    },
+
+    // ========== UTILITIES ==========
+    getTodayDate() {
+      return dayjs().format('YYYY-MM-DD');
+    },
+
+    formatWeekRange(weeks) {
+      if (!weeks || weeks.size === 0) return '(배정 없음)';
+      const sorted = Array.from(weeks).sort();
+      return sorted.join(', ');
+    }
+  };
+}
+
+// === GLOBAL APP REFERENCE ===
+let appInstance = null;
+
+// === SEED DATA IMPORT HELPER ===
+window.importSeedData = async function(seedJSON) {
+  const payload = typeof seedJSON === 'string' ? JSON.parse(seedJSON) : seedJSON;
+
+  await db.transaction('rw', db.members, db.projects, db.assignments, db.events, async () => {
+    if (payload.members?.length) await db.members.bulkAdd(payload.members);
+    if (payload.projects?.length) await db.projects.bulkAdd(payload.projects);
+    if (payload.assignments?.length) await db.assignments.bulkAdd(payload.assignments);
+    if (payload.events?.length) await db.events.bulkAdd(payload.events);
+  });
+
+  // Reload timeline in app instance if available
+  if (appInstance && appInstance.loadTimeline) {
+    await appInstance.loadTimeline();
+    console.log('✓ Seed data imported and timeline reloaded');
+  } else {
+    console.log('✓ Seed data imported. Reload the page to see changes.');
+  }
+};
+  </script>
+</body>
+</html>
