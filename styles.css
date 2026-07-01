@@ -238,10 +238,10 @@ body {
   opacity: 0.35;
 }
 
-.project-row .project-cell {
+.project-row .project-cell:not(.filled):not(.preview) {
   background: var(--surface);
 }
-.project-row .project-cell:hover { background: var(--surface-2); }
+.project-row .project-cell:not(.filled):not(.preview):hover { background: var(--surface-2); }
 .member-row .cell:not(.filled):not(.preview):hover { background: var(--surface-2); }
 
 /* Project memo indicator dot */

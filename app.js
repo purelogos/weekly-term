@@ -604,6 +604,7 @@ function app() {
         await db.assignments.update(member.assignmentId, {
           weeks: Array.from(member.weeks)
         });
+        await this.loadTimeline();
       }
     },
 
