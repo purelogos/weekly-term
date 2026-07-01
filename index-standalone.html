@@ -716,6 +716,9 @@ body {
 .badge-이동 { background: var(--warn); }
 .badge-평가 { background: var(--ok); }
 .event-date { font-size: 11px; color: var(--muted); }
+.event-row { display: flex; align-items: center; gap: 6px; }
+.event-row .event-del { margin-left: auto; opacity: 0.65; }
+.event-item:hover .event-del { opacity: 1; }
 .event-note { font-size: 12.5px; margin-top: 6px; color: var(--ink); }
 .no-data { font-size: 12px; color: var(--faint); font-style: italic; margin: 8px 0; }
 
@@ -974,8 +977,12 @@ body {
         <div class="events-list" x-show="memberEvents.length > 0">
           <template x-for="evt in memberEvents" :key="evt.id">
             <div class="event-item">
-              <span class="event-type" :class="`badge-${evt.type}`" x-text="evt.type"></span>
-              <span class="event-date" x-text="evt.date"></span>
+              <div class="event-row">
+                <span class="event-type" :class="`badge-${evt.type}`" x-text="evt.type"></span>
+                <span class="event-date" x-text="evt.date"></span>
+                <button class="btn-square btn-square-danger btn-square-xs event-del"
+                        @click="deleteEvent(evt.id)" title="이벤트 삭제">✕</button>
+              </div>
               <p class="event-note" x-text="evt.note || '(메모 없음)'"></p>
             </div>
           </template>
@@ -1917,9 +1924,43 @@ function app() {
     },
 
     formatWeekRange(weeks) {
-      if (!weeks || weeks.size === 0) return '(배정 없음)';
-      const sorted = Array.from(weeks).sort();
-      return sorted.join(', ');
+      const arr = Array.isArray(weeks) ? [...weeks]
+                : (weeks && typeof weeks.size === 'number' ? Array.from(weeks) : []);
+      if (arr.length === 0) return '(배정 없음)';
+      arr.sort();
+
+      const parseKey = k => {
+        const m = k.match(/(\d+)-W(\d+)/);
+        return m ? { year: parseInt(m[1]), week: parseInt(m[2]) } : null;
+      };
+      const rangeDates = (startKey, endKey) => {
+        const s = parseKey(startKey), e = parseKey(endKey);
+        if (!s || !e) return '';
+        const startMon = dayjs(`${s.year}-01-04`).startOf('week').add(s.week - 1, 'week');
+        const endFri   = dayjs(`${e.year}-01-04`).startOf('week').add(e.week - 1, 'week').add(4, 'day');
+        return `${startMon.format('YYYY-MM-DD')} ~ ${endFri.format('YYYY-MM-DD')}`;
+      };
+
+      const groups = [];
+      let cur = [arr[0]];
+      for (let i = 1; i < arr.length; i++) {
+        const prev = parseKey(arr[i - 1]);
+        const now  = parseKey(arr[i]);
+        if (prev && now && now.year === prev.year && now.week === prev.week + 1) {
+          cur.push(arr[i]);
+        } else {
+          groups.push(cur);
+          cur = [arr[i]];
+        }
+      }
+      groups.push(cur);
+      return groups.map(g => rangeDates(g[0], g[g.length - 1])).join(',  ');
+    },
+
+    async deleteEvent(eventId) {
+      if (!confirm('이 이벤트 기록을 삭제하시겠습니까?')) return;
+      await db.events.delete(eventId);
+      if (this.selectedMember) await this.selectMember(this.selectedMember.id);
     }
   };
 }

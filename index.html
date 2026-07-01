@@ -223,8 +223,12 @@
         <div class="events-list" x-show="memberEvents.length > 0">
           <template x-for="evt in memberEvents" :key="evt.id">
             <div class="event-item">
-              <span class="event-type" :class="`badge-${evt.type}`" x-text="evt.type"></span>
-              <span class="event-date" x-text="evt.date"></span>
+              <div class="event-row">
+                <span class="event-type" :class="`badge-${evt.type}`" x-text="evt.type"></span>
+                <span class="event-date" x-text="evt.date"></span>
+                <button class="btn-square btn-square-danger btn-square-xs event-del"
+                        @click="deleteEvent(evt.id)" title="이벤트 삭제">✕</button>
+              </div>
               <p class="event-note" x-text="evt.note || '(메모 없음)'"></p>
             </div>
           </template>

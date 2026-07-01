@@ -802,9 +802,43 @@ function app() {
     },
 
     formatWeekRange(weeks) {
-      if (!weeks || weeks.size === 0) return '(배정 없음)';
-      const sorted = Array.from(weeks).sort();
-      return sorted.join(', ');
+      const arr = Array.isArray(weeks) ? [...weeks]
+                : (weeks && typeof weeks.size === 'number' ? Array.from(weeks) : []);
+      if (arr.length === 0) return '(배정 없음)';
+      arr.sort();
+
+      const parseKey = k => {
+        const m = k.match(/(\d+)-W(\d+)/);
+        return m ? { year: parseInt(m[1]), week: parseInt(m[2]) } : null;
+      };
+      const rangeDates = (startKey, endKey) => {
+        const s = parseKey(startKey), e = parseKey(endKey);
+        if (!s || !e) return '';
+        const startMon = dayjs(`${s.year}-01-04`).startOf('week').add(s.week - 1, 'week');
+        const endFri   = dayjs(`${e.year}-01-04`).startOf('week').add(e.week - 1, 'week').add(4, 'day');
+        return `${startMon.format('YYYY-MM-DD')} ~ ${endFri.format('YYYY-MM-DD')}`;
+      };
+
+      const groups = [];
+      let cur = [arr[0]];
+      for (let i = 1; i < arr.length; i++) {
+        const prev = parseKey(arr[i - 1]);
+        const now  = parseKey(arr[i]);
+        if (prev && now && now.year === prev.year && now.week === prev.week + 1) {
+          cur.push(arr[i]);
+        } else {
+          groups.push(cur);
+          cur = [arr[i]];
+        }
+      }
+      groups.push(cur);
+      return groups.map(g => rangeDates(g[0], g[g.length - 1])).join(',  ');
+    },
+
+    async deleteEvent(eventId) {
+      if (!confirm('이 이벤트 기록을 삭제하시겠습니까?')) return;
+      await db.events.delete(eventId);
+      if (this.selectedMember) await this.selectMember(this.selectedMember.id);
     }
   };
 }
