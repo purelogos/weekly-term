@@ -150,6 +150,50 @@ body {
   color: white !important;
 }
 
+/* Square icon buttons */
+.btn-square {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+  border: 1px solid rgba(201, 100, 66, 0.3);
+  color: var(--accent-2);
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 600;
+  margin-left: 4px;
+  transition: all 0.12s ease;
+  font-family: inherit;
+}
+.btn-square:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+.btn-square-danger {
+  background: rgba(179, 65, 58, 0.10);
+  border-color: rgba(179, 65, 58, 0.28);
+  color: var(--danger);
+}
+.btn-square-danger:hover {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: white;
+}
+.btn-square-xs {
+  width: 18px;
+  height: 18px;
+  font-size: 11px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.member-name:hover .btn-square-xs { opacity: 1; }
+
 .btn-close {
   position: absolute;
   top: 12px; right: 12px;
@@ -487,6 +531,7 @@ body {
   background: var(--surface-2);
   color: var(--ink);
 }
+.member-name-text { flex: 1; }
 .drag-handle {
   color: var(--faint);
   font-size: 10px;

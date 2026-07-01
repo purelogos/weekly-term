@@ -55,14 +55,31 @@
             </div>
           </div>
         </div>
-        <select x-model="filterMemberId" class="filter-select" title="구성원 필터">
-          <option value="">전체 구성원</option>
-          <template x-for="m in allMembers" :key="m.id">
-            <option :value="m.id" x-text="`${m.name} (${m.task || '-'})`"></option>
-          </template>
-        </select>
-        <button x-show="filterTasks.length > 0 || filterMemberId"
-                @click="filterTasks=[]; filterMemberId=''"
+        <div class="task-filter" @click.outside="showMemberFilter = false">
+          <button type="button" class="filter-select task-filter-toggle"
+                  @click="showMemberFilter = !showMemberFilter"
+                  x-text="memberFilterLabel"
+                  :class="{'has-selection': filterMemberIds.length > 0 && filterMemberIds.length < allMembers.length}"></button>
+          <div class="task-filter-panel" x-show="showMemberFilter" x-cloak x-transition>
+            <div class="task-filter-head">
+              <button type="button" class="task-filter-linkbtn" @click="selectAllMembers()">전체 선택</button>
+              <button type="button" class="task-filter-linkbtn" @click="clearAllMembers()">해제</button>
+            </div>
+            <div class="task-filter-list">
+              <template x-for="m in allMembers" :key="m.id">
+                <label class="task-filter-item">
+                  <input type="checkbox" :value="m.id"
+                         :checked="filterMemberIds.includes(m.id)"
+                         @change="toggleMemberFilter(m.id)">
+                  <span x-text="`${m.name} · ${m.task || '-'}`"></span>
+                </label>
+              </template>
+              <div class="task-filter-empty" x-show="allMembers.length === 0">등록된 구성원이 없습니다</div>
+            </div>
+          </div>
+        </div>
+        <button x-show="filterTasks.length > 0 || filterMemberIds.length > 0"
+                @click="filterTasks=[]; filterMemberIds=[]"
                 class="btn-icon" title="필터 해제">✕</button>
       </div>
     </div>
@@ -109,8 +126,8 @@
             <span class="project-color-dot" :style="`background:${project.color}`"></span>
             <span x-text="project.name"></span>
             <span class="spacer"></span>
-            <button @click.stop="addMemberTargetProjectId = project.id; showAddMemberModal = true;" class="btn-icon-small">+ 구성원</button>
-            <button @click.stop="deleteProject(project.id)" class="btn-icon-small btn-danger" title="프로젝트 삭제">✕</button>
+            <button @click.stop="addMemberTargetProjectId = project.id; showAddMemberModal = true;" class="btn-square" title="구성원 추가">+</button>
+            <button @click.stop="deleteProject(project.id)" class="btn-square btn-square-danger" title="프로젝트 삭제">✕</button>
           </div>
           <div class="cell info-cell"></div>
           <div class="cell info-cell"></div>
@@ -140,7 +157,10 @@
                  @click="selectMember(member.id)"
                  title="드래그하여 다른 프로젝트로 이동 · Ctrl+드래그로 복사">
               <span class="drag-handle">⋮⋮</span>
-              <span x-text="member.name"></span>
+              <span x-text="member.name" class="member-name-text"></span>
+              <button class="btn-square btn-square-danger btn-square-xs"
+                      @click.stop="removeMemberFromProject(member.assignmentId, member.name, project.name)"
+                      title="이 프로젝트에서 제외">✕</button>
             </div>
             <div class="cell info-cell current-cell"
                  :title="isMemberActiveNow(project.id, member.id) ? '현재 주차에 이 프로젝트에서 활성' : '현재 주차에 미배정'">

@@ -40,7 +40,8 @@ function app() {
     // Filters
     filterTasks: [],
     showTaskFilter: false,
-    filterMemberId: '',
+    filterMemberIds: [],
+    showMemberFilter: false,
 
     // Right panel
     selectedMember: null,
@@ -300,16 +301,36 @@ function app() {
     selectAllTasks() { this.filterTasks = [...this.uniqueTasks]; },
     clearAllTasks() { this.filterTasks = []; },
 
+    get memberFilterLabel() {
+      const total = this.allMembers.length;
+      const picked = this.filterMemberIds.length;
+      if (picked === 0 || picked === total) return '구성원: 전체';
+      if (picked === 1) {
+        const m = this.allMembers.find(x => x.id === this.filterMemberIds[0]);
+        return `구성원: ${m ? m.name : ''}`;
+      }
+      return `구성원: ${picked}명`;
+    },
+
+    toggleMemberFilter(memberId) {
+      const i = this.filterMemberIds.indexOf(memberId);
+      if (i >= 0) this.filterMemberIds = this.filterMemberIds.filter(x => x !== memberId);
+      else this.filterMemberIds = [...this.filterMemberIds, memberId];
+    },
+    selectAllMembers() { this.filterMemberIds = this.allMembers.map(m => m.id); },
+    clearAllMembers() { this.filterMemberIds = []; },
+
     get visibleProjects() {
-      const memId = this.filterMemberId ? parseInt(this.filterMemberId) : null;
       const taskSet = this.filterTasks.length > 0 && this.filterTasks.length < this.uniqueTasks.length
                       ? new Set(this.filterTasks) : null;
-      if (!memId && !taskSet) return this.projects;
+      const memSet = this.filterMemberIds.length > 0 && this.filterMemberIds.length < this.allMembers.length
+                      ? new Set(this.filterMemberIds) : null;
+      if (!memSet && !taskSet) return this.projects;
       return this.projects
         .map(p => ({
           ...p,
           members: p.members.filter(m => {
-            if (memId && m.id !== memId) return false;
+            if (memSet && !memSet.has(m.id)) return false;
             if (taskSet && !taskSet.has(m.task)) return false;
             return true;
           })
@@ -397,6 +418,12 @@ function app() {
       if (this.selectedMember) {
         await this.selectMember(this.selectedMember.id);
       }
+    },
+
+    async removeMemberFromProject(assignmentId, memberName, projectName) {
+      if (!confirm(`"${memberName}"을(를) "${projectName}" 프로젝트에서 제외합니다.\n(구성원 자체는 유지됩니다)\n계속하시겠습니까?`)) return;
+      await db.assignments.delete(assignmentId);
+      await this.loadTimeline();
     },
 
     async deleteMember(memberId) {

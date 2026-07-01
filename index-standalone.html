@@ -169,6 +169,50 @@ body {
   color: white !important;
 }
 
+/* Square icon buttons */
+.btn-square {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+  border: 1px solid rgba(201, 100, 66, 0.3);
+  color: var(--accent-2);
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 600;
+  margin-left: 4px;
+  transition: all 0.12s ease;
+  font-family: inherit;
+}
+.btn-square:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+.btn-square-danger {
+  background: rgba(179, 65, 58, 0.10);
+  border-color: rgba(179, 65, 58, 0.28);
+  color: var(--danger);
+}
+.btn-square-danger:hover {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: white;
+}
+.btn-square-xs {
+  width: 18px;
+  height: 18px;
+  font-size: 11px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.member-name:hover .btn-square-xs { opacity: 1; }
+
 .btn-close {
   position: absolute;
   top: 12px; right: 12px;
@@ -506,6 +550,7 @@ body {
   background: var(--surface-2);
   color: var(--ink);
 }
+.member-name-text { flex: 1; }
 .drag-handle {
   color: var(--faint);
   font-size: 10px;
@@ -761,14 +806,31 @@ body {
             </div>
           </div>
         </div>
-        <select x-model="filterMemberId" class="filter-select" title="구성원 필터">
-          <option value="">전체 구성원</option>
-          <template x-for="m in allMembers" :key="m.id">
-            <option :value="m.id" x-text="`${m.name} (${m.task || '-'})`"></option>
-          </template>
-        </select>
-        <button x-show="filterTasks.length > 0 || filterMemberId"
-                @click="filterTasks=[]; filterMemberId=''"
+        <div class="task-filter" @click.outside="showMemberFilter = false">
+          <button type="button" class="filter-select task-filter-toggle"
+                  @click="showMemberFilter = !showMemberFilter"
+                  x-text="memberFilterLabel"
+                  :class="{'has-selection': filterMemberIds.length > 0 && filterMemberIds.length < allMembers.length}"></button>
+          <div class="task-filter-panel" x-show="showMemberFilter" x-cloak x-transition>
+            <div class="task-filter-head">
+              <button type="button" class="task-filter-linkbtn" @click="selectAllMembers()">전체 선택</button>
+              <button type="button" class="task-filter-linkbtn" @click="clearAllMembers()">해제</button>
+            </div>
+            <div class="task-filter-list">
+              <template x-for="m in allMembers" :key="m.id">
+                <label class="task-filter-item">
+                  <input type="checkbox" :value="m.id"
+                         :checked="filterMemberIds.includes(m.id)"
+                         @change="toggleMemberFilter(m.id)">
+                  <span x-text="`${m.name} · ${m.task || '-'}`"></span>
+                </label>
+              </template>
+              <div class="task-filter-empty" x-show="allMembers.length === 0">등록된 구성원이 없습니다</div>
+            </div>
+          </div>
+        </div>
+        <button x-show="filterTasks.length > 0 || filterMemberIds.length > 0"
+                @click="filterTasks=[]; filterMemberIds=[]"
                 class="btn-icon" title="필터 해제">✕</button>
       </div>
     </div>
@@ -815,8 +877,8 @@ body {
             <span class="project-color-dot" :style="`background:${project.color}`"></span>
             <span x-text="project.name"></span>
             <span class="spacer"></span>
-            <button @click.stop="addMemberTargetProjectId = project.id; showAddMemberModal = true;" class="btn-icon-small">+ 구성원</button>
-            <button @click.stop="deleteProject(project.id)" class="btn-icon-small btn-danger" title="프로젝트 삭제">✕</button>
+            <button @click.stop="addMemberTargetProjectId = project.id; showAddMemberModal = true;" class="btn-square" title="구성원 추가">+</button>
+            <button @click.stop="deleteProject(project.id)" class="btn-square btn-square-danger" title="프로젝트 삭제">✕</button>
           </div>
           <div class="cell info-cell"></div>
           <div class="cell info-cell"></div>
@@ -846,7 +908,10 @@ body {
                  @click="selectMember(member.id)"
                  title="드래그하여 다른 프로젝트로 이동 · Ctrl+드래그로 복사">
               <span class="drag-handle">⋮⋮</span>
-              <span x-text="member.name"></span>
+              <span x-text="member.name" class="member-name-text"></span>
+              <button class="btn-square btn-square-danger btn-square-xs"
+                      @click.stop="removeMemberFromProject(member.assignmentId, member.name, project.name)"
+                      title="이 프로젝트에서 제외">✕</button>
             </div>
             <div class="cell info-cell current-cell"
                  :title="isMemberActiveNow(project.id, member.id) ? '현재 주차에 이 프로젝트에서 활성' : '현재 주차에 미배정'">
@@ -1096,7 +1161,8 @@ function app() {
     // Right panel
     filterTasks: [],
     showTaskFilter: false,
-    filterMemberId: '',
+    filterMemberIds: [],
+    showMemberFilter: false,
 
     selectedMember: null,
     memberAssignmentHistory: [],
@@ -1355,16 +1421,36 @@ function app() {
     selectAllTasks() { this.filterTasks = [...this.uniqueTasks]; },
     clearAllTasks() { this.filterTasks = []; },
 
+    get memberFilterLabel() {
+      const total = this.allMembers.length;
+      const picked = this.filterMemberIds.length;
+      if (picked === 0 || picked === total) return '구성원: 전체';
+      if (picked === 1) {
+        const m = this.allMembers.find(x => x.id === this.filterMemberIds[0]);
+        return `구성원: ${m ? m.name : ''}`;
+      }
+      return `구성원: ${picked}명`;
+    },
+
+    toggleMemberFilter(memberId) {
+      const i = this.filterMemberIds.indexOf(memberId);
+      if (i >= 0) this.filterMemberIds = this.filterMemberIds.filter(x => x !== memberId);
+      else this.filterMemberIds = [...this.filterMemberIds, memberId];
+    },
+    selectAllMembers() { this.filterMemberIds = this.allMembers.map(m => m.id); },
+    clearAllMembers() { this.filterMemberIds = []; },
+
     get visibleProjects() {
-      const memId = this.filterMemberId ? parseInt(this.filterMemberId) : null;
       const taskSet = this.filterTasks.length > 0 && this.filterTasks.length < this.uniqueTasks.length
                       ? new Set(this.filterTasks) : null;
-      if (!memId && !taskSet) return this.projects;
+      const memSet = this.filterMemberIds.length > 0 && this.filterMemberIds.length < this.allMembers.length
+                      ? new Set(this.filterMemberIds) : null;
+      if (!memSet && !taskSet) return this.projects;
       return this.projects
         .map(p => ({
           ...p,
           members: p.members.filter(m => {
-            if (memId && m.id !== memId) return false;
+            if (memSet && !memSet.has(m.id)) return false;
             if (taskSet && !taskSet.has(m.task)) return false;
             return true;
           })
@@ -1424,6 +1510,12 @@ function app() {
       if (this.selectedMember) {
         await this.selectMember(this.selectedMember.id);
       }
+    },
+
+    async removeMemberFromProject(assignmentId, memberName, projectName) {
+      if (!confirm(`"${memberName}"을(를) "${projectName}" 프로젝트에서 제외합니다.\n(구성원 자체는 유지됩니다)\n계속하시겠습니까?`)) return;
+      await db.assignments.delete(assignmentId);
+      await this.loadTimeline();
     },
 
     async deleteMember(memberId) {
