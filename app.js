@@ -147,6 +147,25 @@ function app() {
       return counts;
     },
 
+    projectHeadcount(projectId) {
+      const project = this.projects.find(p => p.id === projectId);
+      const empty = { 파트장: 0, ABI: 0, uPGM: 0, CI: 0, 기타: 0, total: 0 };
+      if (!project) return empty;
+      const key = this.currentWeekKey;
+      const active = project.members.filter(m => m.weeks.has(key));
+      const counts = { 파트장: 0, ABI: 0, uPGM: 0, CI: 0, 기타: 0 };
+      for (const m of active) {
+        const text = `${m.task || ''} ${m.years || ''} ${m.name || ''}`;
+        const lower = text.toLowerCase();
+        if (text.includes('파트장')) counts.파트장++;
+        else if (lower.includes('abi')) counts.ABI++;
+        else if (lower.includes('upgm')) counts.uPGM++;
+        else if (/\bci\b/i.test(text)) counts.CI++;
+        else counts.기타++;
+      }
+      return { ...counts, total: active.length };
+    },
+
     memberActiveState(projectId, memberId) {
       if (!this.isMemberActiveNow(projectId, memberId)) return 'inactive';
       const count = this.memberActiveCounts[memberId] || 0;

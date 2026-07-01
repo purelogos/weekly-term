@@ -530,6 +530,41 @@ body {
   color: var(--ink-2);
 }
 
+/* Project headcount summary (in memo column of project row) */
+.project-summary { padding: 2px 6px !important; overflow: hidden; }
+.summary-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-items: center;
+  width: 100%;
+  justify-content: flex-start;
+  line-height: 1;
+}
+.sum-total {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+  padding: 2px 6px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  margin-right: 2px;
+}
+.sum-total b { color: var(--accent); font-weight: 700; }
+.sum-chip {
+  font-size: 10px;
+  color: var(--ink-2);
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+  letter-spacing: -0.1px;
+}
+.sum-chip b { color: var(--ok); font-weight: 700; }
+.sum-empty { color: var(--faint); font-size: 10.5px; font-style: italic; }
+
 .current-cell { padding: 0; }
 .current-dot {
   width: 11px;

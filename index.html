@@ -141,7 +141,19 @@
             <button @click.stop="deleteProject(project.id)" class="btn-square btn-square-danger" title="프로젝트 삭제">✕</button>
           </div>
           <div class="cell info-cell"></div>
-          <div class="cell info-cell"></div>
+          <div class="cell info-cell project-summary">
+            <template x-if="projectHeadcount(project.id).total > 0">
+              <div class="summary-grid">
+                <span class="sum-total">총 <b x-text="projectHeadcount(project.id).total"></b>명</span>
+                <span class="sum-chip" title="파트장">장 <b x-text="projectHeadcount(project.id).파트장"></b></span>
+                <span class="sum-chip" title="ABI">A <b x-text="projectHeadcount(project.id).ABI"></b></span>
+                <span class="sum-chip" title="uPGM">u <b x-text="projectHeadcount(project.id).uPGM"></b></span>
+                <span class="sum-chip" title="CI">C <b x-text="projectHeadcount(project.id).CI"></b></span>
+                <span class="sum-chip" title="기타">기 <b x-text="projectHeadcount(project.id).기타"></b></span>
+              </div>
+            </template>
+            <span x-show="projectHeadcount(project.id).total === 0" class="sum-empty">현재원 없음</span>
+          </div>
           <template x-for="(week, weekIdx) in weekHeaders" :key="`project-${project.id}-${weekIdx}`">
             <div
               class="cell project-cell"
