@@ -508,7 +508,7 @@ function app() {
         this.drag.mode = this.isProjectWeekFilled(rowId, weekIdx) ? 'erase' : 'fill';
       } else {
         const [projId, memberId] = rowId.split('-');
-        this.drag.mode = this.isMemberWeekFilled(projId, memberId, weekIdx) ? 'erase' : 'fill';
+        this.drag.mode = this.isMemberWeekFilled(parseInt(projId), parseInt(memberId), weekIdx) ? 'erase' : 'fill';
       }
 
       document.addEventListener('mouseup', () => this.endDrag(), { once: true });

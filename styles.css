@@ -173,11 +173,9 @@ body {
 
 /* === TIMELINE CONTAINER === */
 .timeline-container {
-  display: flex;
-  flex-direction: column;
   height: calc(100vh - 65px);
   background: var(--bg);
-  overflow: hidden;
+  overflow: auto;
 }
 
 /* === GRID: name | count | memo | 52 weeks (narrower) === */
@@ -187,17 +185,14 @@ body {
   grid-template-columns: 220px 50px 160px repeat(52, 42px);
   gap: 0;
   width: max-content;
-}
-
-.timeline-rows {
-  flex: 1;
-  overflow: auto;
-  align-content: start;
   background: var(--surface);
 }
 
+.timeline-rows {
+  align-content: start;
+}
+
 .header-row {
-  flex-shrink: 0;
   background: var(--surface);
   color: var(--ink);
   position: sticky;
@@ -587,15 +582,15 @@ body {
 .edit-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
 
 /* === SCROLLBARS === */
-.timeline-rows::-webkit-scrollbar,
+.timeline-container::-webkit-scrollbar,
 .member-panel::-webkit-scrollbar,
-.modal::-webkit-scrollbar { width: 10px; height: 10px; }
-.timeline-rows::-webkit-scrollbar-track,
+.modal::-webkit-scrollbar { width: 12px; height: 12px; }
+.timeline-container::-webkit-scrollbar-track,
 .member-panel::-webkit-scrollbar-track,
-.modal::-webkit-scrollbar-track { background: transparent; }
-.timeline-rows::-webkit-scrollbar-thumb,
+.modal::-webkit-scrollbar-track { background: var(--surface-2); }
+.timeline-container::-webkit-scrollbar-thumb,
 .member-panel::-webkit-scrollbar-thumb,
 .modal::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 6px; }
-.timeline-rows::-webkit-scrollbar-thumb:hover,
+.timeline-container::-webkit-scrollbar-thumb:hover,
 .member-panel::-webkit-scrollbar-thumb:hover,
 .modal::-webkit-scrollbar-thumb:hover { background: var(--muted); }
