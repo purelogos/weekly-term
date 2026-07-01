@@ -21,16 +21,16 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #f5f1eb;
-  --surface: #fdfaf3;
-  --surface-2: #f0ebe2;
+  --bg: #faf7f0;
+  --surface: #ffffff;
+  --surface-2: #f4efe4;
   --surface-hi: #ffffff;
-  --border: #e5ddce;
-  --border-strong: #d8ceba;
+  --border: #ece5d5;
+  --border-strong: #dccfb8;
   --ink: #2b2823;
   --ink-2: #4a453d;
   --muted: #8a8072;
-  --faint: #b8ae9d;
+  --faint: #c4bba8;
   --accent: #c96442;
   --accent-2: #b55a3b;
   --accent-soft: rgba(201, 100, 66, 0.10);
@@ -203,7 +203,7 @@ body {
 .timeline-grid,
 .timeline-rows {
   display: grid;
-  grid-template-columns: 220px 44px 160px repeat(52, 54px);
+  grid-template-columns: 220px 50px 160px repeat(52, 42px);
   gap: 0;
   width: max-content;
 }
@@ -321,21 +321,23 @@ body {
 
 .week-header {
   flex-direction: column;
-  gap: 1px;
-  padding: 5px 0;
+  gap: 0;
+  padding: 3px 0;
+  line-height: 1.15;
 }
 .week-num {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
   color: var(--ink);
   letter-spacing: 0.2px;
 }
-.week-dates {
-  font-size: 9px;
+.week-date {
+  font-size: 8.5px;
   color: var(--muted);
   font-family: 'SF Mono', ui-monospace, Menlo, monospace;
-  letter-spacing: -0.2px;
+  letter-spacing: -0.3px;
 }
+.week-date + .week-date { color: var(--faint); }
 
 .info-cell {
   background: var(--surface);
@@ -349,19 +351,17 @@ body {
   color: var(--ink-2);
 }
 
-.project-count { position: relative; }
-.badge-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--accent);
-  color: white;
-  border-radius: 999px;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 8px;
-  font-size: 11px;
-  font-weight: 600;
+.current-cell { padding: 0; }
+.current-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--faint);
+  background: transparent;
+  transition: all 0.2s ease;
+}
+.current-dot.active {
+  border-color: transparent;
 }
 
 /* === PROJECT NAME ROW === */
@@ -666,12 +666,13 @@ body {
     <!-- HEADER ROW (weeks) -->
     <div class="timeline-grid header-row">
       <div class="name-cell header-name">프로젝트 / 구성원</div>
-      <div class="cell header-cell header-info">프로젝트</div>
+      <div class="cell header-cell header-info" title="이 구성원이 오늘 주차에 이 프로젝트에서 활성 배정되어 있는지 표시">현재</div>
       <div class="cell header-cell header-info memo-header">메모</div>
       <template x-for="(week, idx) in weekHeaders" :key="idx">
         <div class="cell header-cell week-header">
           <div class="week-num" x-text="week.num"></div>
-          <div class="week-dates" x-text="week.dates"></div>
+          <div class="week-date" x-text="week.start"></div>
+          <div class="week-date" x-text="week.end"></div>
         </div>
       </template>
     </div>
@@ -726,8 +727,11 @@ body {
               <span class="drag-handle">⋮⋮</span>
               <span x-text="member.name"></span>
             </div>
-            <div class="cell info-cell project-count">
-              <span x-text="member.activeProjectCount" class="badge-count"></span>
+            <div class="cell info-cell current-cell"
+                 :title="isMemberActiveNow(project.id, member.id) ? '현재 주차에 이 프로젝트에서 활성' : '현재 주차에 미배정'">
+              <span class="current-dot"
+                    :class="{'active': isMemberActiveNow(project.id, member.id)}"
+                    :style="isMemberActiveNow(project.id, member.id) ? `background:${project.color};box-shadow:0 0 0 3px ${project.color}22` : ''"></span>
             </div>
             <div class="cell info-cell memo-cell">
               <input type="text" placeholder="메모..." :value="member.memo || ''"
@@ -1003,9 +1007,27 @@ function app() {
         const friday = monday.add(4, 'day');
         return {
           num: `W${String(i + 1).padStart(2, '0')}`,
-          dates: `${monday.format('MM/DD')}~${friday.format('MM/DD')}`
+          start: monday.format('MM/DD'),
+          end: friday.format('MM/DD')
         };
       });
+    },
+
+    get currentWeekKey() {
+      const now = dayjs();
+      const year = now.year();
+      const jan4 = dayjs(`${year}-01-04`);
+      const firstMonday = jan4.startOf('week');
+      const diffWeeks = now.startOf('week').diff(firstMonday, 'week') + 1;
+      return `${year}-W${String(diffWeeks).padStart(2, '0')}`;
+    },
+
+    isMemberActiveNow(projectId, memberId) {
+      const project = this.projects.find(p => p.id === projectId);
+      if (!project) return false;
+      const member = project.members.find(m => m.id === memberId);
+      if (!member) return false;
+      return member.weeks.has(this.currentWeekKey);
     },
 
     async loadTimeline() {

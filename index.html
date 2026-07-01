@@ -62,12 +62,13 @@
     <!-- HEADER ROW (weeks) -->
     <div class="timeline-grid header-row">
       <div class="name-cell header-name">프로젝트 / 구성원</div>
-      <div class="cell header-cell header-info">프로젝트</div>
+      <div class="cell header-cell header-info" title="이 구성원이 오늘 주차에 이 프로젝트에서 활성 배정되어 있는지 표시">현재</div>
       <div class="cell header-cell header-info memo-header">메모</div>
       <template x-for="(week, idx) in weekHeaders" :key="idx">
         <div class="cell header-cell week-header">
           <div class="week-num" x-text="week.num"></div>
-          <div class="week-dates" x-text="week.dates"></div>
+          <div class="week-date" x-text="week.start"></div>
+          <div class="week-date" x-text="week.end"></div>
         </div>
       </template>
     </div>
@@ -122,8 +123,11 @@
               <span class="drag-handle">⋮⋮</span>
               <span x-text="member.name"></span>
             </div>
-            <div class="cell info-cell project-count">
-              <span x-text="member.activeProjectCount" class="badge-count"></span>
+            <div class="cell info-cell current-cell"
+                 :title="isMemberActiveNow(project.id, member.id) ? '현재 주차에 이 프로젝트에서 활성' : '현재 주차에 미배정'">
+              <span class="current-dot"
+                    :class="{'active': isMemberActiveNow(project.id, member.id)}"
+                    :style="isMemberActiveNow(project.id, member.id) ? `background:${project.color};box-shadow:0 0 0 3px ${project.color}22` : ''"></span>
             </div>
             <div class="cell info-cell memo-cell">
               <input type="text" placeholder="메모..." :value="member.memo || ''"

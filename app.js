@@ -77,9 +77,27 @@ function app() {
         const friday = monday.add(4, 'day');
         return {
           num: `W${String(i + 1).padStart(2, '0')}`,
-          dates: `${monday.format('MM/DD')}~${friday.format('MM/DD')}`
+          start: monday.format('MM/DD'),
+          end: friday.format('MM/DD')
         };
       });
+    },
+
+    get currentWeekKey() {
+      const now = dayjs();
+      const year = now.year();
+      const jan4 = dayjs(`${year}-01-04`);
+      const firstMonday = jan4.startOf('week');
+      const diffWeeks = now.startOf('week').diff(firstMonday, 'week') + 1;
+      return `${year}-W${String(diffWeeks).padStart(2, '0')}`;
+    },
+
+    isMemberActiveNow(projectId, memberId) {
+      const project = this.projects.find(p => p.id === projectId);
+      if (!project) return false;
+      const member = project.members.find(m => m.id === memberId);
+      if (!member) return false;
+      return member.weeks.has(this.currentWeekKey);
     },
 
     async loadTimeline() {
