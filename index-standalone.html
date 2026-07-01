@@ -107,6 +107,12 @@ body {
   font-weight: 500;
   letter-spacing: 0.1px;
   font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.today-pill:hover {
+  background: rgba(229, 120, 109, 0.28);
+  border-color: var(--danger);
 }
 
 .header-right { display: flex; gap: 8px; align-items: center; }
@@ -810,6 +816,29 @@ body {
 }
 .edit-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
 
+/* === PHASE MODAL === */
+.phase-modal { min-width: 380px; }
+.phase-hint { color: var(--muted); font-size: 12px; margin-bottom: 14px; }
+.phase-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.phase-btn {
+  padding: 14px 8px;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.2px;
+  transition: transform 0.1s, box-shadow 0.15s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+.phase-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
+.phase-btn:active { transform: translateY(0); }
+
 /* === SCROLLBARS === */
 .timeline-container::-webkit-scrollbar,
 .member-panel::-webkit-scrollbar,
@@ -839,7 +868,7 @@ body {
         <span class="year-display" x-text="`${currentYear}년`"></span>
         <button @click="nextYear()" class="btn-icon">▶</button>
       </div>
-      <div class="today-pill" x-text="todayLabel" title="오늘 날짜와 ISO 주차"></div>
+      <button class="today-pill" @click="scrollToToday()" x-text="todayLabel" title="오늘 컬럼으로 스크롤"></button>
       <div class="filters">
         <div class="task-filter" @click.outside="showTaskFilter = false">
           <button type="button" class="filter-select task-filter-toggle"
@@ -960,7 +989,8 @@ body {
                 'has-memo': !!getProjectWeekMemo(project.id, weekIdx),
                 'today-week': weekIdx === todayWeekIdx
               }"
-              :title="getProjectWeekMemo(project.id, weekIdx)"
+              :style="isProjectWeekFilled(project.id, weekIdx) ? `--project-color:${getProjectWeekColor(project, weekIdx)}` : ''"
+              :title="[getProjectWeekPhaseLabel(project, weekIdx), getProjectWeekMemo(project.id, weekIdx)].filter(Boolean).join(' · ')"
               @mousedown="startDrag('project', project.id, weekIdx)"
               @mouseover="updateDragPreview('project', project.id, weekIdx)"
               @dblclick.prevent="editProjectWeekMemo(project.id, weekIdx)"
@@ -1145,6 +1175,25 @@ body {
     </div>
   </div>
 
+  <!-- Phase Select Modal -->
+  <div class="modal-backdrop" x-show="showPhaseModal" @click.self="cancelPhaseModal()">
+    <div class="modal phase-modal">
+      <h2>페이즈 선택</h2>
+      <p class="phase-hint" x-text="`${phaseModalWeeks.length}개 주차에 적용`"></p>
+      <div class="phase-grid">
+        <template x-for="p in PHASES" :key="p.code">
+          <button type="button" class="phase-btn"
+                  :style="`background:${p.color}; color:${p.code === 'P5-DB05' || p.code === 'P5-DB04' || p.code === 'P5-DB03' ? 'white' : '#1a1010'}`"
+                  @click="applyPhase(p.code)"
+                  x-text="p.label"></button>
+        </template>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+        <button type="button" class="btn" @click="cancelPhaseModal()">건너뛰기</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Manage Members Modal -->
   <div class="modal-backdrop" x-show="showManageMembersModal" @click.self="showManageMembersModal = false; cancelEditMember();">
     <div class="modal" style="min-width:640px; max-width:800px;">
@@ -1248,9 +1297,24 @@ function app() {
     showCreateMemberModal: false,
     showLogEventModal: false,
     showManageMembersModal: false,
+    showPhaseModal: false,
+    phaseModalProjectId: null,
+    phaseModalWeeks: [],
     addMemberTargetProjectId: null,
     logEventTargetMemberId: null,
     editingMemberId: null,
+
+    PHASES: [
+      { code: 'P4',      label: 'P4',      color: '#94bff3' },
+      { code: 'P5-DB00', label: 'P5·DB00', color: '#c8f2a2' },
+      { code: 'P5-DB01', label: 'P5·DB01', color: '#a8e26e' },
+      { code: 'P5-DB02', label: 'P5·DB02', color: '#7fc93e' },
+      { code: 'P5-DB03', label: 'P5·DB03', color: '#5eaa1f' },
+      { code: 'P5-DB04', label: 'P5·DB04', color: '#3f8300' },
+      { code: 'P5-DB05', label: 'P5·DB05', color: '#255500' },
+      { code: 'P6',      label: 'P6',      color: '#ffdc57' },
+      { code: 'P7',      label: 'P7',      color: '#e5786d' }
+    ],
 
     // Form data
     newProject: { name: '', color: '#3b82f6' },
@@ -1263,6 +1327,7 @@ function app() {
     async init() {
       appInstance = this;
       await this.loadTimeline();
+      this.$nextTick(() => setTimeout(() => this.scrollToToday(), 0));
     },
 
     get weekHeaders() {
@@ -1374,7 +1439,8 @@ function app() {
             ...project,
             members: projectMembers,
             weeks: new Set(project.weeks || []),
-            weekMemos: project.weekMemos || {}
+            weekMemos: project.weekMemos || {},
+            weekPhases: project.weekPhases || {}
           };
         });
 
@@ -1895,6 +1961,54 @@ function app() {
       return member.weekMemos[this.weekIdxToKey(weekIdx)] || '';
     },
 
+    openPhaseModal(projectId, weekKeys) {
+      this.phaseModalProjectId = projectId;
+      this.phaseModalWeeks = [...weekKeys];
+      this.showPhaseModal = true;
+    },
+    cancelPhaseModal() {
+      this.showPhaseModal = false;
+      this.phaseModalProjectId = null;
+      this.phaseModalWeeks = [];
+    },
+    async applyPhase(code) {
+      const project = this.projects.find(p => p.id === this.phaseModalProjectId);
+      if (!project) { this.cancelPhaseModal(); return; }
+      const phases = { ...(project.weekPhases || {}) };
+      this.phaseModalWeeks.forEach(w => { phases[w] = code; });
+      await db.projects.update(project.id, { weekPhases: phases });
+      this.cancelPhaseModal();
+      await this.loadTimeline();
+    },
+    getProjectWeekColor(project, weekIdx) {
+      const key = this.weekIdxToKey(weekIdx);
+      const code = project.weekPhases?.[key];
+      if (code) {
+        const p = this.PHASES.find(x => x.code === code);
+        if (p) return p.color;
+      }
+      return project.color;
+    },
+    getProjectWeekPhaseLabel(project, weekIdx) {
+      const key = this.weekIdxToKey(weekIdx);
+      const code = project.weekPhases?.[key];
+      if (!code) return '';
+      const p = this.PHASES.find(x => x.code === code);
+      return p ? p.label : code;
+    },
+    scrollToToday() {
+      const wIdx = this.todayWeekIdx;
+      if (wIdx < 0) return;
+      const container = document.querySelector('.timeline-container');
+      if (!container) return;
+      const cs = getComputedStyle(document.querySelector('.timeline-grid'));
+      const cols = cs.gridTemplateColumns.split(' ');
+      const fixedW = cols.slice(0, 3).reduce((a, s) => a + parseFloat(s), 0);
+      const cellW = parseFloat(cols[3]) || 42;
+      const target = fixedW + wIdx * cellW - container.clientWidth / 2 + cellW / 2;
+      container.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+    },
+
     async applyDragRange(rowId, startIdx, endIdx, mode) {
       const weekKeys = [];
       for (let i = startIdx; i <= endIdx; i++) {
@@ -1905,15 +2019,18 @@ function app() {
         const project = this.projects.find(p => p.id === rowId);
         if (!project) return;
 
+        const phases = { ...(project.weekPhases || {}) };
         if (mode === 'fill') {
           weekKeys.forEach(w => project.weeks.add(w));
         } else {
-          weekKeys.forEach(w => project.weeks.delete(w));
+          weekKeys.forEach(w => { project.weeks.delete(w); delete phases[w]; });
         }
         await db.projects.update(project.id, {
-          weeks: Array.from(project.weeks)
+          weeks: Array.from(project.weeks),
+          weekPhases: phases
         });
         await this.loadTimeline();
+        if (mode === 'fill') this.openPhaseModal(project.id, weekKeys);
       } else {
         // Update member weeks within project
         const [projId, memberId] = rowId.split('-');

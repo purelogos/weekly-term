@@ -88,6 +88,12 @@ body {
   font-weight: 500;
   letter-spacing: 0.1px;
   font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.today-pill:hover {
+  background: rgba(229, 120, 109, 0.28);
+  border-color: var(--danger);
 }
 
 .header-right { display: flex; gap: 8px; align-items: center; }
@@ -790,6 +796,29 @@ body {
   font-family: inherit;
 }
 .edit-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+
+/* === PHASE MODAL === */
+.phase-modal { min-width: 380px; }
+.phase-hint { color: var(--muted); font-size: 12px; margin-bottom: 14px; }
+.phase-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.phase-btn {
+  padding: 14px 8px;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.2px;
+  transition: transform 0.1s, box-shadow 0.15s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+.phase-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
+.phase-btn:active { transform: translateY(0); }
 
 /* === SCROLLBARS === */
 .timeline-container::-webkit-scrollbar,

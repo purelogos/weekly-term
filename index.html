@@ -30,7 +30,7 @@
         <span class="year-display" x-text="`${currentYear}년`"></span>
         <button @click="nextYear()" class="btn-icon">▶</button>
       </div>
-      <div class="today-pill" x-text="todayLabel" title="오늘 날짜와 ISO 주차"></div>
+      <button class="today-pill" @click="scrollToToday()" x-text="todayLabel" title="오늘 컬럼으로 스크롤"></button>
       <div class="filters">
         <div class="task-filter" @click.outside="showTaskFilter = false">
           <button type="button" class="filter-select task-filter-toggle"
@@ -151,7 +151,8 @@
                 'has-memo': !!getProjectWeekMemo(project.id, weekIdx),
                 'today-week': weekIdx === todayWeekIdx
               }"
-              :title="getProjectWeekMemo(project.id, weekIdx)"
+              :style="isProjectWeekFilled(project.id, weekIdx) ? `--project-color:${getProjectWeekColor(project, weekIdx)}` : ''"
+              :title="[getProjectWeekPhaseLabel(project, weekIdx), getProjectWeekMemo(project.id, weekIdx)].filter(Boolean).join(' · ')"
               @mousedown="startDrag('project', project.id, weekIdx)"
               @mouseover="updateDragPreview('project', project.id, weekIdx)"
               @dblclick.prevent="editProjectWeekMemo(project.id, weekIdx)"
@@ -333,6 +334,25 @@
         <button type="submit" class="btn btn-primary">기록</button>
         <button type="button" @click="showLogEventModal = false" class="btn">취소</button>
       </form>
+    </div>
+  </div>
+
+  <!-- Phase Select Modal -->
+  <div class="modal-backdrop" x-show="showPhaseModal" @click.self="cancelPhaseModal()">
+    <div class="modal phase-modal">
+      <h2>페이즈 선택</h2>
+      <p class="phase-hint" x-text="`${phaseModalWeeks.length}개 주차에 적용`"></p>
+      <div class="phase-grid">
+        <template x-for="p in PHASES" :key="p.code">
+          <button type="button" class="phase-btn"
+                  :style="`background:${p.color}; color:${p.color === '#255500' || p.code === 'P5-DB05' || p.code === 'P5-DB04' || p.code === 'P5-DB03' ? 'white' : '#1a1010'}`"
+                  @click="applyPhase(p.code)"
+                  x-text="p.label"></button>
+        </template>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+        <button type="button" class="btn" @click="cancelPhaseModal()">건너뛰기</button>
+      </div>
     </div>
   </div>
 

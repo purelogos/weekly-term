@@ -55,9 +55,24 @@ function app() {
     showCreateMemberModal: false,
     showLogEventModal: false,
     showManageMembersModal: false,
+    showPhaseModal: false,
+    phaseModalProjectId: null,
+    phaseModalWeeks: [],
     addMemberTargetProjectId: null,
     logEventTargetMemberId: null,
     editingMemberId: null,
+
+    PHASES: [
+      { code: 'P4',      label: 'P4',      color: '#94bff3' },
+      { code: 'P5-DB00', label: 'P5·DB00', color: '#c8f2a2' },
+      { code: 'P5-DB01', label: 'P5·DB01', color: '#a8e26e' },
+      { code: 'P5-DB02', label: 'P5·DB02', color: '#7fc93e' },
+      { code: 'P5-DB03', label: 'P5·DB03', color: '#5eaa1f' },
+      { code: 'P5-DB04', label: 'P5·DB04', color: '#3f8300' },
+      { code: 'P5-DB05', label: 'P5·DB05', color: '#255500' },
+      { code: 'P6',      label: 'P6',      color: '#ffdc57' },
+      { code: 'P7',      label: 'P7',      color: '#e5786d' }
+    ],
 
     // Form data
     newProject: { name: '', color: '#3b82f6' },
@@ -70,6 +85,7 @@ function app() {
     async init() {
       appInstance = this;
       await this.loadTimeline();
+      this.$nextTick(() => setTimeout(() => this.scrollToToday(), 0));
     },
 
     get weekHeaders() {
@@ -181,7 +197,8 @@ function app() {
             ...project,
             members: projectMembers,
             weeks: new Set(project.weeks || []),
-            weekMemos: project.weekMemos || {}
+            weekMemos: project.weekMemos || {},
+            weekPhases: project.weekPhases || {}
           };
         });
 
@@ -674,6 +691,59 @@ function app() {
       await this.loadTimeline();
     },
 
+    openPhaseModal(projectId, weekKeys) {
+      this.phaseModalProjectId = projectId;
+      this.phaseModalWeeks = [...weekKeys];
+      this.showPhaseModal = true;
+    },
+
+    cancelPhaseModal() {
+      this.showPhaseModal = false;
+      this.phaseModalProjectId = null;
+      this.phaseModalWeeks = [];
+    },
+
+    async applyPhase(code) {
+      const project = this.projects.find(p => p.id === this.phaseModalProjectId);
+      if (!project) { this.cancelPhaseModal(); return; }
+      const phases = { ...(project.weekPhases || {}) };
+      this.phaseModalWeeks.forEach(w => { phases[w] = code; });
+      await db.projects.update(project.id, { weekPhases: phases });
+      this.cancelPhaseModal();
+      await this.loadTimeline();
+    },
+
+    getProjectWeekColor(project, weekIdx) {
+      const key = this.weekIdxToKey(weekIdx);
+      const code = project.weekPhases?.[key];
+      if (code) {
+        const p = this.PHASES.find(x => x.code === code);
+        if (p) return p.color;
+      }
+      return project.color;
+    },
+
+    getProjectWeekPhaseLabel(project, weekIdx) {
+      const key = this.weekIdxToKey(weekIdx);
+      const code = project.weekPhases?.[key];
+      if (!code) return '';
+      const p = this.PHASES.find(x => x.code === code);
+      return p ? p.label : code;
+    },
+
+    scrollToToday() {
+      const wIdx = this.todayWeekIdx;
+      if (wIdx < 0) return;
+      const container = document.querySelector('.timeline-container');
+      if (!container) return;
+      const cs = getComputedStyle(document.querySelector('.timeline-grid'));
+      const cols = cs.gridTemplateColumns.split(' ');
+      const fixedW = cols.slice(0, 3).reduce((a, s) => a + parseFloat(s), 0);
+      const cellW = parseFloat(cols[3]) || 42;
+      const target = fixedW + wIdx * cellW - container.clientWidth / 2 + cellW / 2;
+      container.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+    },
+
     getProjectWeekMemo(projectId, weekIdx) {
       const project = this.projects.find(p => p.id === projectId);
       if (!project || !project.weekMemos) return '';
@@ -716,16 +786,19 @@ function app() {
         const project = this.projects.find(p => p.id === rowId);
         if (!project) return;
 
+        const phases = { ...(project.weekPhases || {}) };
         if (mode === 'fill') {
           weekKeys.forEach(w => project.weeks.add(w));
         } else {
-          weekKeys.forEach(w => project.weeks.delete(w));
+          weekKeys.forEach(w => { project.weeks.delete(w); delete phases[w]; });
         }
 
         await db.projects.update(project.id, {
-          weeks: Array.from(project.weeks)
+          weeks: Array.from(project.weeks),
+          weekPhases: phases
         });
         await this.loadTimeline();
+        if (mode === 'fill') this.openPhaseModal(project.id, weekKeys);
       } else {
         // Update member weeks within project
         const [projId, memberId] = rowId.split('-');
