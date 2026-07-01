@@ -183,7 +183,10 @@
                  @click="selectMember(member.id)"
                  title="드래그하여 순서 변경 (같은 프로젝트 내) · 다른 프로젝트로 이동 · Ctrl+드래그로 복사">
               <span class="drag-handle">⋮⋮</span>
-              <span x-text="member.name" class="member-name-text"></span>
+              <span class="member-name-text">
+                <span x-text="member.name"></span>
+                <span class="member-task-inline" x-show="member.task" x-text="member.task"></span>
+              </span>
               <button class="btn-square btn-square-danger btn-square-xs"
                       @click.stop="removeMemberFromProject(member.assignmentId, member.name, project.name)"
                       title="이 프로젝트에서 제외">✕</button>

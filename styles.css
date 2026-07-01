@@ -627,7 +627,20 @@ body {
   background: var(--surface-2);
   color: var(--ink);
 }
-.member-name-text { flex: 1; }
+.member-name-text { flex: 1; display: flex; align-items: baseline; gap: 6px; overflow: hidden; }
+.member-task-inline {
+  font-size: 10.5px;
+  color: var(--muted);
+  font-weight: 400;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90px;
+}
 .drag-handle {
   color: var(--faint);
   font-size: 10px;

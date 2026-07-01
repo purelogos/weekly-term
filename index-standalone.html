@@ -646,7 +646,20 @@ body {
   background: var(--surface-2);
   color: var(--ink);
 }
-.member-name-text { flex: 1; }
+.member-name-text { flex: 1; display: flex; align-items: baseline; gap: 6px; overflow: hidden; }
+.member-task-inline {
+  font-size: 10.5px;
+  color: var(--muted);
+  font-weight: 400;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90px;
+}
 .drag-handle {
   color: var(--faint);
   font-size: 10px;
@@ -1149,7 +1162,10 @@ body {
                  @click="selectMember(member.id)"
                  title="드래그하여 순서 변경 (같은 프로젝트 내) · 다른 프로젝트로 이동 · Ctrl+드래그로 복사">
               <span class="drag-handle">⋮⋮</span>
-              <span x-text="member.name" class="member-name-text"></span>
+              <span class="member-name-text">
+                <span x-text="member.name"></span>
+                <span class="member-task-inline" x-show="member.task" x-text="member.task"></span>
+              </span>
               <button class="btn-square btn-square-danger btn-square-xs"
                       @click.stop="removeMemberFromProject(member.assignmentId, member.name, project.name)"
                       title="이 프로젝트에서 제외">✕</button>
