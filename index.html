@@ -78,8 +78,14 @@
             </div>
           </div>
         </div>
-        <button x-show="filterTasks.length > 0 || filterMemberIds.length > 0"
-                @click="filterTasks=[]; filterMemberIds=[]"
+        <button type="button" class="filter-toggle"
+                :class="{'on': filterOnlyActive}"
+                @click="filterOnlyActive = !filterOnlyActive"
+                title="현재 주차에 어떤 프로젝트에라도 배정된 구성원만 표시">
+          <span class="toggle-dot"></span>현재 배정만
+        </button>
+        <button x-show="filterTasks.length > 0 || filterMemberIds.length > 0 || filterOnlyActive"
+                @click="filterTasks=[]; filterMemberIds=[]; filterOnlyActive=false"
                 class="btn-icon" title="필터 해제">✕</button>
       </div>
     </div>
@@ -163,10 +169,10 @@
                       title="이 프로젝트에서 제외">✕</button>
             </div>
             <div class="cell info-cell current-cell"
-                 :title="isMemberActiveNow(project.id, member.id) ? '현재 주차에 이 프로젝트에서 활성' : '현재 주차에 미배정'">
-              <span class="current-dot"
-                    :class="{'active': isMemberActiveNow(project.id, member.id)}"
-                    :style="isMemberActiveNow(project.id, member.id) ? `background:${project.color};box-shadow:0 0 0 3px ${project.color}22` : ''"></span>
+                 :title="memberActiveState(project.id, member.id) === 'inactive' ? '현재 주차 미배정'
+                        : memberActiveState(project.id, member.id) === 'single' ? '이번 주 이 프로젝트에서만 활성'
+                        : `이번 주 ${memberActiveCounts[member.id]}개 프로젝트에 중복 활성`">
+              <span class="current-dot" :class="`state-${memberActiveState(project.id, member.id)}`"></span>
             </div>
             <div class="cell info-cell memo-cell">
               <input type="text" placeholder="메모..." :value="member.memo || ''"

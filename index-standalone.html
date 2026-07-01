@@ -319,6 +319,41 @@ body {
 }
 .task-filter-empty { padding: 12px; text-align: center; color: var(--faint); font-size: 12px; }
 
+/* Filter toggle chip */
+.filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.filter-toggle:hover { border-color: var(--ink-2); }
+.filter-toggle .toggle-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--faint);
+  background: transparent;
+}
+.filter-toggle.on {
+  border-color: #22a06b;
+  background: rgba(34, 160, 107, 0.10);
+  color: #147a4d;
+}
+.filter-toggle.on .toggle-dot {
+  border-color: transparent;
+  background: #22a06b;
+  box-shadow: 0 0 0 3px rgba(34, 160, 107, 0.18);
+}
+
 /* === TIMELINE CONTAINER === */
 .timeline-container {
   height: calc(100vh - 65px);
@@ -499,15 +534,22 @@ body {
 
 .current-cell { padding: 0; }
 .current-dot {
-  width: 10px;
-  height: 10px;
+  width: 11px;
+  height: 11px;
   border-radius: 50%;
-  border: 1.5px solid var(--faint);
-  background: transparent;
   transition: all 0.2s ease;
 }
-.current-dot.active {
-  border-color: transparent;
+.current-dot.state-inactive {
+  border: 1.5px solid var(--faint);
+  background: transparent;
+}
+.current-dot.state-single {
+  background: #22a06b;
+  box-shadow: 0 0 0 3px rgba(34, 160, 107, 0.18);
+}
+.current-dot.state-multi {
+  background: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.20);
 }
 
 /* === PROJECT NAME ROW === */
@@ -832,8 +874,14 @@ body {
             </div>
           </div>
         </div>
-        <button x-show="filterTasks.length > 0 || filterMemberIds.length > 0"
-                @click="filterTasks=[]; filterMemberIds=[]"
+        <button type="button" class="filter-toggle"
+                :class="{'on': filterOnlyActive}"
+                @click="filterOnlyActive = !filterOnlyActive"
+                title="현재 주차에 어떤 프로젝트에라도 배정된 구성원만 표시">
+          <span class="toggle-dot"></span>현재 배정만
+        </button>
+        <button x-show="filterTasks.length > 0 || filterMemberIds.length > 0 || filterOnlyActive"
+                @click="filterTasks=[]; filterMemberIds=[]; filterOnlyActive=false"
                 class="btn-icon" title="필터 해제">✕</button>
       </div>
     </div>
@@ -917,10 +965,10 @@ body {
                       title="이 프로젝트에서 제외">✕</button>
             </div>
             <div class="cell info-cell current-cell"
-                 :title="isMemberActiveNow(project.id, member.id) ? '현재 주차에 이 프로젝트에서 활성' : '현재 주차에 미배정'">
-              <span class="current-dot"
-                    :class="{'active': isMemberActiveNow(project.id, member.id)}"
-                    :style="isMemberActiveNow(project.id, member.id) ? `background:${project.color};box-shadow:0 0 0 3px ${project.color}22` : ''"></span>
+                 :title="memberActiveState(project.id, member.id) === 'inactive' ? '현재 주차 미배정'
+                        : memberActiveState(project.id, member.id) === 'single' ? '이번 주 이 프로젝트에서만 활성'
+                        : `이번 주 ${memberActiveCounts[member.id]}개 프로젝트에 중복 활성`">
+              <span class="current-dot" :class="`state-${memberActiveState(project.id, member.id)}`"></span>
             </div>
             <div class="cell info-cell memo-cell">
               <input type="text" placeholder="메모..." :value="member.memo || ''"
@@ -1170,6 +1218,7 @@ function app() {
     showTaskFilter: false,
     filterMemberIds: [],
     showMemberFilter: false,
+    filterOnlyActive: false,
 
     selectedMember: null,
     memberAssignmentHistory: [],
@@ -1241,6 +1290,23 @@ function app() {
       const member = project.members.find(m => m.id === memberId);
       if (!member) return false;
       return member.weeks.has(this.currentWeekKey);
+    },
+
+    get memberActiveCounts() {
+      const key = this.currentWeekKey;
+      const counts = {};
+      for (const p of this.projects) {
+        for (const m of p.members) {
+          if (m.weeks.has(key)) counts[m.id] = (counts[m.id] || 0) + 1;
+        }
+      }
+      return counts;
+    },
+
+    memberActiveState(projectId, memberId) {
+      if (!this.isMemberActiveNow(projectId, memberId)) return 'inactive';
+      const count = this.memberActiveCounts[memberId] || 0;
+      return count >= 2 ? 'multi' : 'single';
     },
 
     async loadTimeline() {
@@ -1452,13 +1518,16 @@ function app() {
                       ? new Set(this.filterTasks) : null;
       const memSet = this.filterMemberIds.length > 0 && this.filterMemberIds.length < this.allMembers.length
                       ? new Set(this.filterMemberIds) : null;
-      if (!memSet && !taskSet) return this.projects;
+      const activeOnly = this.filterOnlyActive;
+      const counts = activeOnly ? this.memberActiveCounts : null;
+      if (!memSet && !taskSet && !activeOnly) return this.projects;
       return this.projects
         .map(p => ({
           ...p,
           members: p.members.filter(m => {
             if (memSet && !memSet.has(m.id)) return false;
             if (taskSet && !taskSet.has(m.task)) return false;
+            if (activeOnly && !(counts[m.id] > 0)) return false;
             return true;
           })
         }))

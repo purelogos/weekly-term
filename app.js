@@ -42,6 +42,7 @@ function app() {
     showTaskFilter: false,
     filterMemberIds: [],
     showMemberFilter: false,
+    filterOnlyActive: false,
 
     // Right panel
     selectedMember: null,
@@ -114,6 +115,23 @@ function app() {
       const member = project.members.find(m => m.id === memberId);
       if (!member) return false;
       return member.weeks.has(this.currentWeekKey);
+    },
+
+    get memberActiveCounts() {
+      const key = this.currentWeekKey;
+      const counts = {};
+      for (const p of this.projects) {
+        for (const m of p.members) {
+          if (m.weeks.has(key)) counts[m.id] = (counts[m.id] || 0) + 1;
+        }
+      }
+      return counts;
+    },
+
+    memberActiveState(projectId, memberId) {
+      if (!this.isMemberActiveNow(projectId, memberId)) return 'inactive';
+      const count = this.memberActiveCounts[memberId] || 0;
+      return count >= 2 ? 'multi' : 'single';
     },
 
     async loadTimeline() {
@@ -325,13 +343,16 @@ function app() {
                       ? new Set(this.filterTasks) : null;
       const memSet = this.filterMemberIds.length > 0 && this.filterMemberIds.length < this.allMembers.length
                       ? new Set(this.filterMemberIds) : null;
-      if (!memSet && !taskSet) return this.projects;
+      const activeOnly = this.filterOnlyActive;
+      const counts = activeOnly ? this.memberActiveCounts : null;
+      if (!memSet && !taskSet && !activeOnly) return this.projects;
       return this.projects
         .map(p => ({
           ...p,
           members: p.members.filter(m => {
             if (memSet && !memSet.has(m.id)) return false;
             if (taskSet && !taskSet.has(m.task)) return false;
+            if (activeOnly && !(counts[m.id] > 0)) return false;
             return true;
           })
         }))
