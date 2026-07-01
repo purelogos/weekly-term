@@ -21,7 +21,6 @@ function app() {
   return {
     // ========== STATE ==========
     currentYear: new Date().getFullYear(),
-    weekHeaders: [],
 
     // Projects with members loaded
     projects: [],
@@ -66,11 +65,21 @@ function app() {
 
     // ========== INITIALIZATION ==========
     async init() {
-      appInstance = this;  // Register global reference
-      this.weekHeaders = Array.from({ length: 52 }, (_, i) =>
-        `W${String(i + 1).padStart(2, '0')}`
-      );
+      appInstance = this;
       await this.loadTimeline();
+    },
+
+    get weekHeaders() {
+      const jan4 = dayjs(`${this.currentYear}-01-04`);
+      const firstMonday = jan4.startOf('week');
+      return Array.from({ length: 52 }, (_, i) => {
+        const monday = firstMonday.add(i, 'week');
+        const friday = monday.add(4, 'day');
+        return {
+          num: `W${String(i + 1).padStart(2, '0')}`,
+          dates: `${monday.format('MM/DD')}~${friday.format('MM/DD')}`
+        };
+      });
     },
 
     async loadTimeline() {
@@ -349,6 +358,63 @@ function app() {
       await db.members.delete(memberId);
       if (this.selectedMember?.id === memberId) this.selectedMember = null;
       this.editingMemberId = null;
+      await this.loadTimeline();
+    },
+
+    // ========== MEMBER DRAG-AND-DROP (reassign / copy across projects) ==========
+    dropHoverProjectId: null,
+
+    onMemberDragStart(evt, projectId, memberId, assignmentId) {
+      const payload = JSON.stringify({ projectId, memberId, assignmentId });
+      evt.dataTransfer.effectAllowed = 'copyMove';
+      evt.dataTransfer.setData('application/x-member-assignment', payload);
+      evt.dataTransfer.setData('text/plain', payload);
+    },
+
+    onProjectDragOver(evt, projectId) {
+      evt.preventDefault();
+      evt.dataTransfer.dropEffect = evt.ctrlKey || evt.metaKey ? 'copy' : 'move';
+      this.dropHoverProjectId = projectId;
+    },
+
+    onProjectDragLeave(projectId) {
+      if (this.dropHoverProjectId === projectId) this.dropHoverProjectId = null;
+    },
+
+    async onMemberDrop(evt, targetProjectId) {
+      evt.preventDefault();
+      this.dropHoverProjectId = null;
+      const raw = evt.dataTransfer.getData('application/x-member-assignment')
+                  || evt.dataTransfer.getData('text/plain');
+      if (!raw) return;
+      let payload;
+      try { payload = JSON.parse(raw); } catch { return; }
+      const { projectId: srcProjectId, memberId, assignmentId } = payload;
+      if (!assignmentId || !memberId || srcProjectId === targetProjectId) return;
+
+      const copy = evt.ctrlKey || evt.metaKey;
+      const srcAssign = await db.assignments.get(assignmentId);
+      if (!srcAssign) return;
+
+      const existing = await db.assignments
+        .where('[memberId+projectId]').equals([memberId, targetProjectId]).first();
+
+      if (existing) {
+        const mergedWeeks = [...new Set([...(existing.weeks || []), ...(srcAssign.weeks || [])])];
+        const mergedMemo = [existing.memo, srcAssign.memo].filter(Boolean).join(' / ');
+        await db.assignments.update(existing.id, { weeks: mergedWeeks, memo: mergedMemo });
+        if (!copy) await db.assignments.delete(assignmentId);
+      } else if (copy) {
+        await db.assignments.add({
+          memberId,
+          projectId: targetProjectId,
+          weeks: [...(srcAssign.weeks || [])],
+          memo: srcAssign.memo || ''
+        });
+      } else {
+        await db.assignments.update(assignmentId, { projectId: targetProjectId });
+      }
+      this.expandedProjects = { ...this.expandedProjects, [targetProjectId]: true };
       await this.loadTimeline();
     },
 

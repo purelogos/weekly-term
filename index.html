@@ -63,11 +63,12 @@
     <div class="timeline-grid header-row">
       <div class="name-cell header-name">프로젝트 / 구성원</div>
       <div class="cell header-cell header-info">프로젝트</div>
-      <div class="cell header-cell header-info" style="min-width: 100px;">시작날짜</div>
-      <div class="cell header-cell header-info" style="min-width: 100px;">종료날짜</div>
-      <div class="cell header-cell header-info" style="min-width: 160px;">메모</div>
+      <div class="cell header-cell header-info memo-header">메모</div>
       <template x-for="(week, idx) in weekHeaders" :key="idx">
-        <div class="cell header-cell" x-text="week"></div>
+        <div class="cell header-cell week-header">
+          <div class="week-num" x-text="week.num"></div>
+          <div class="week-dates" x-text="week.dates"></div>
+        </div>
       </template>
     </div>
 
@@ -76,21 +77,27 @@
       <template x-for="project in visibleProjects" :key="project.id">
         <div style="display: contents">
         <!-- PROJECT ROW -->
-        <div class="row project-row" :style="`--project-color: ${project.color};`">
-          <div class="name-cell project-name" @click="toggleProject(project.id)">
+        <div class="row project-row"
+             :class="{'drop-target': dropHoverProjectId === project.id}"
+             :style="`--project-color: ${project.color};`">
+          <div class="name-cell project-name"
+               @click="toggleProject(project.id)"
+               @dragover.prevent="onProjectDragOver($event, project.id)"
+               @dragleave="onProjectDragLeave(project.id)"
+               @drop="onMemberDrop($event, project.id)">
             <span x-show="isExpanded(project.id)">▼</span>
             <span x-show="!isExpanded(project.id)">▶</span>
+            <span class="project-color-dot" :style="`background:${project.color}`"></span>
             <span x-text="project.name"></span>
+            <span class="spacer"></span>
             <button @click.stop="addMemberTargetProjectId = project.id; showAddMemberModal = true;" class="btn-icon-small">+ 구성원</button>
             <button @click.stop="deleteProject(project.id)" class="btn-icon-small btn-danger" title="프로젝트 삭제">✕</button>
           </div>
           <div class="cell info-cell"></div>
           <div class="cell info-cell"></div>
-          <div class="cell info-cell"></div>
-          <div class="cell info-cell"></div>
           <template x-for="(week, weekIdx) in weekHeaders" :key="`project-${project.id}-${weekIdx}`">
             <div
-              class="cell"
+              class="cell project-cell"
               :class="{
                 'filled': isProjectWeekFilled(project.id, weekIdx),
                 'preview': isProjectCellInDragPreview(project.id, weekIdx),
@@ -107,14 +114,17 @@
         <!-- MEMBER ROWS (shown when project expanded) -->
         <template x-for="member in (isExpanded(project.id) ? project.members : [])" :key="`member-${project.id}-${member.id}`">
           <div class="row member-row" :style="`--project-color: ${project.color};`">
-            <div class="name-cell member-name" @click="selectMember(member.id)">
+            <div class="name-cell member-name"
+                 draggable="true"
+                 @dragstart="onMemberDragStart($event, project.id, member.id, member.assignmentId)"
+                 @click="selectMember(member.id)"
+                 title="드래그하여 다른 프로젝트로 이동 · Ctrl+드래그로 복사">
+              <span class="drag-handle">⋮⋮</span>
               <span x-text="member.name"></span>
             </div>
             <div class="cell info-cell project-count">
               <span x-text="member.activeProjectCount" class="badge-count"></span>
             </div>
-            <div class="cell info-cell date-cell" x-text="member.startDate"></div>
-            <div class="cell info-cell date-cell" x-text="member.endDate"></div>
             <div class="cell info-cell memo-cell">
               <input type="text" placeholder="메모..." :value="member.memo || ''"
                      @change="updateMemo(member.assignmentId, $event.target.value)">
