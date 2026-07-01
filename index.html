@@ -108,8 +108,8 @@
       <template x-for="(week, idx) in weekHeaders" :key="idx">
         <div class="cell header-cell week-header" :class="{'today-week': idx === todayWeekIdx}">
           <div class="week-num" x-text="week.num"></div>
-          <div class="week-date"><span class="week-day">월</span> <span x-text="week.start"></span></div>
-          <div class="week-date"><span class="week-day">금</span> <span x-text="week.end"></span></div>
+          <div class="week-date" x-text="week.start"></div>
+          <div class="week-date" x-text="week.end"></div>
         </div>
       </template>
     </div>
@@ -383,9 +383,18 @@
       <div class="phase-grid">
         <template x-for="p in PHASES" :key="p.code">
           <button type="button" class="phase-btn"
-                  :style="`background:${p.color}; color:${p.color === '#255500' || p.code === 'P5-DB05' || p.code === 'P5-DB04' || p.code === 'P5-DB03' ? 'white' : '#1a1010'}`"
+                  :style="`background:${p.color}; color:#1a1010`"
                   @click="applyPhase(p.code)"
                   x-text="p.label"></button>
+        </template>
+      </div>
+      <div class="phase-divider">임의 색상</div>
+      <div class="color-grid">
+        <template x-for="c in EXTRA_COLORS" :key="c.color">
+          <button type="button" class="color-swatch"
+                  :style="`background:${c.color}`"
+                  :title="c.label"
+                  @click="applyPhase(c.color)"></button>
         </template>
       </div>
       <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">

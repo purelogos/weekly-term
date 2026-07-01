@@ -66,14 +66,24 @@ function app() {
 
     PHASES: [
       { code: 'P4',      label: 'P4',      color: '#94bff3' },
-      { code: 'P5-DB00', label: 'P5·DB00', color: '#c8f2a2' },
-      { code: 'P5-DB01', label: 'P5·DB01', color: '#a8e26e' },
-      { code: 'P5-DB02', label: 'P5·DB02', color: '#7fc93e' },
-      { code: 'P5-DB03', label: 'P5·DB03', color: '#5eaa1f' },
-      { code: 'P5-DB04', label: 'P5·DB04', color: '#3f8300' },
-      { code: 'P5-DB05', label: 'P5·DB05', color: '#255500' },
-      { code: 'P6',      label: 'P6',      color: '#ffdc57' },
+      { code: 'P5-DB00', label: 'P5·DB00', color: '#d9e6d0' },
+      { code: 'P5-DB01', label: 'P5·DB01', color: '#87ceeb' },
+      { code: 'P5-DB02', label: 'P5·DB02', color: '#ffb87d' },
+      { code: 'P5-DB03', label: 'P5·DB03', color: '#fff59d' },
+      { code: 'P5-DB04', label: 'P5·DB04', color: '#a7f3d0' },
+      { code: 'P5-DB05', label: 'P5·DB05', color: '#ffdc57' },
+      { code: 'P6',      label: 'P6',      color: '#c8b4ff' },
       { code: 'P7',      label: 'P7',      color: '#e5786d' }
+    ],
+    EXTRA_COLORS: [
+      { label: '하늘',    color: '#87ceeb' },
+      { label: '주황',    color: '#ffb87d' },
+      { label: '노랑',    color: '#ffdc57' },
+      { label: '에메랄드', color: '#a7f3d0' },
+      { label: '연분홍',   color: '#f9c5c0' },
+      { label: '라벤더',   color: '#c8b4ff' },
+      { label: '회색',    color: '#b0b0a8' },
+      { label: '흰색',    color: '#ffffff' }
     ],
 
     // Form data
@@ -824,6 +834,7 @@ function app() {
       const key = this.weekIdxToKey(weekIdx);
       const code = project.weekPhases?.[key];
       if (code) {
+        if (code.startsWith('#')) return code;
         const p = this.PHASES.find(x => x.code === code);
         if (p) return p.color;
       }
@@ -834,6 +845,7 @@ function app() {
       const key = this.weekIdxToKey(weekIdx);
       const code = project.weekPhases?.[key];
       if (!code) return '';
+      if (code.startsWith('#')) return `색상 ${code}`;
       const p = this.PHASES.find(x => x.code === code);
       return p ? p.label : code;
     },

@@ -511,12 +511,6 @@ body {
   letter-spacing: -0.2px;
   line-height: 1.15;
 }
-.week-day {
-  color: var(--ok);
-  font-weight: 700;
-  margin-right: 2px;
-}
-.week-date + .week-date .week-day { color: #ffb27a; }
 
 .info-cell {
   background: var(--surface);
@@ -874,6 +868,32 @@ body {
 }
 .phase-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
 .phase-btn:active { transform: translateY(0); }
+
+.phase-divider {
+  margin: 16px 0 8px;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.color-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8px;
+}
+.color-swatch {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.2);
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.15s;
+  padding: 0;
+}
+.color-swatch:hover { transform: scale(1.06); box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
+.color-swatch:active { transform: scale(0.98); }
 
 /* === MEMBER PICKER MODAL === */
 .member-picker-modal { min-width: 480px; max-width: 560px; }

@@ -530,12 +530,6 @@ body {
   letter-spacing: -0.2px;
   line-height: 1.15;
 }
-.week-day {
-  color: var(--ok);
-  font-weight: 700;
-  margin-right: 2px;
-}
-.week-date + .week-date .week-day { color: #ffb27a; }
 
 .info-cell {
   background: var(--surface);
@@ -894,6 +888,32 @@ body {
 .phase-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
 .phase-btn:active { transform: translateY(0); }
 
+.phase-divider {
+  margin: 16px 0 8px;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.color-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8px;
+}
+.color-swatch {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.2);
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.15s;
+  padding: 0;
+}
+.color-swatch:hover { transform: scale(1.06); box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
+.color-swatch:active { transform: scale(0.98); }
+
 /* === MEMBER PICKER MODAL === */
 .member-picker-modal { min-width: 480px; max-width: 560px; }
 .picker-search {
@@ -1087,8 +1107,8 @@ body {
       <template x-for="(week, idx) in weekHeaders" :key="idx">
         <div class="cell header-cell week-header" :class="{'today-week': idx === todayWeekIdx}">
           <div class="week-num" x-text="week.num"></div>
-          <div class="week-date"><span class="week-day">월</span> <span x-text="week.start"></span></div>
-          <div class="week-date"><span class="week-day">금</span> <span x-text="week.end"></span></div>
+          <div class="week-date" x-text="week.start"></div>
+          <div class="week-date" x-text="week.end"></div>
         </div>
       </template>
     </div>
@@ -1362,9 +1382,18 @@ body {
       <div class="phase-grid">
         <template x-for="p in PHASES" :key="p.code">
           <button type="button" class="phase-btn"
-                  :style="`background:${p.color}; color:${p.code === 'P5-DB05' || p.code === 'P5-DB04' || p.code === 'P5-DB03' ? 'white' : '#1a1010'}`"
+                  :style="`background:${p.color}; color:#1a1010`"
                   @click="applyPhase(p.code)"
                   x-text="p.label"></button>
+        </template>
+      </div>
+      <div class="phase-divider">임의 색상</div>
+      <div class="color-grid">
+        <template x-for="c in EXTRA_COLORS" :key="c.color">
+          <button type="button" class="color-swatch"
+                  :style="`background:${c.color}`"
+                  :title="c.label"
+                  @click="applyPhase(c.color)"></button>
         </template>
       </div>
       <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
@@ -1494,14 +1523,24 @@ function app() {
 
     PHASES: [
       { code: 'P4',      label: 'P4',      color: '#94bff3' },
-      { code: 'P5-DB00', label: 'P5·DB00', color: '#c8f2a2' },
-      { code: 'P5-DB01', label: 'P5·DB01', color: '#a8e26e' },
-      { code: 'P5-DB02', label: 'P5·DB02', color: '#7fc93e' },
-      { code: 'P5-DB03', label: 'P5·DB03', color: '#5eaa1f' },
-      { code: 'P5-DB04', label: 'P5·DB04', color: '#3f8300' },
-      { code: 'P5-DB05', label: 'P5·DB05', color: '#255500' },
-      { code: 'P6',      label: 'P6',      color: '#ffdc57' },
+      { code: 'P5-DB00', label: 'P5·DB00', color: '#d9e6d0' },
+      { code: 'P5-DB01', label: 'P5·DB01', color: '#87ceeb' },
+      { code: 'P5-DB02', label: 'P5·DB02', color: '#ffb87d' },
+      { code: 'P5-DB03', label: 'P5·DB03', color: '#fff59d' },
+      { code: 'P5-DB04', label: 'P5·DB04', color: '#a7f3d0' },
+      { code: 'P5-DB05', label: 'P5·DB05', color: '#ffdc57' },
+      { code: 'P6',      label: 'P6',      color: '#c8b4ff' },
       { code: 'P7',      label: 'P7',      color: '#e5786d' }
+    ],
+    EXTRA_COLORS: [
+      { label: '하늘',    color: '#87ceeb' },
+      { label: '주황',    color: '#ffb87d' },
+      { label: '노랑',    color: '#ffdc57' },
+      { label: '에메랄드', color: '#a7f3d0' },
+      { label: '연분홍',   color: '#f9c5c0' },
+      { label: '라벤더',   color: '#c8b4ff' },
+      { label: '회색',    color: '#b0b0a8' },
+      { label: '흰색',    color: '#ffffff' }
     ],
 
     // Form data
@@ -2276,6 +2315,7 @@ function app() {
       const key = this.weekIdxToKey(weekIdx);
       const code = project.weekPhases?.[key];
       if (code) {
+        if (code.startsWith('#')) return code;
         const p = this.PHASES.find(x => x.code === code);
         if (p) return p.color;
       }
@@ -2285,6 +2325,7 @@ function app() {
       const key = this.weekIdxToKey(weekIdx);
       const code = project.weekPhases?.[key];
       if (!code) return '';
+      if (code.startsWith('#')) return `색상 ${code}`;
       const p = this.PHASES.find(x => x.code === code);
       return p ? p.label : code;
     },
