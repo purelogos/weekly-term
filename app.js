@@ -38,7 +38,8 @@ function app() {
     },
 
     // Filters
-    filterTask: '',
+    filterTasks: [],
+    showTaskFilter: false,
     filterMemberId: '',
 
     // Right panel
@@ -282,16 +283,34 @@ function app() {
       return [...new Set(this.allMembers.map(m => m.task))].filter(Boolean).sort();
     },
 
+    get taskFilterLabel() {
+      const total = this.uniqueTasks.length;
+      const picked = this.filterTasks.length;
+      if (picked === 0 || picked === total) return '업무: 전체';
+      if (picked === 1) return `업무: ${this.filterTasks[0]}`;
+      return `업무: ${picked}개 선택`;
+    },
+
+    toggleTaskFilter(task) {
+      const i = this.filterTasks.indexOf(task);
+      if (i >= 0) this.filterTasks = this.filterTasks.filter(t => t !== task);
+      else this.filterTasks = [...this.filterTasks, task];
+    },
+
+    selectAllTasks() { this.filterTasks = [...this.uniqueTasks]; },
+    clearAllTasks() { this.filterTasks = []; },
+
     get visibleProjects() {
       const memId = this.filterMemberId ? parseInt(this.filterMemberId) : null;
-      const task = this.filterTask;
-      if (!memId && !task) return this.projects;
+      const taskSet = this.filterTasks.length > 0 && this.filterTasks.length < this.uniqueTasks.length
+                      ? new Set(this.filterTasks) : null;
+      if (!memId && !taskSet) return this.projects;
       return this.projects
         .map(p => ({
           ...p,
           members: p.members.filter(m => {
             if (memId && m.id !== memId) return false;
-            if (task && m.task !== task) return false;
+            if (taskSet && !taskSet.has(m.task)) return false;
             return true;
           })
         }))

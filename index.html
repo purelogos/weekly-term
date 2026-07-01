@@ -32,20 +32,37 @@
       </div>
       <div class="today-pill" x-text="todayLabel" title="오늘 날짜와 ISO 주차"></div>
       <div class="filters">
-        <select x-model="filterTask" class="filter-select" title="업무 필터">
-          <option value="">전체 업무</option>
-          <template x-for="t in uniqueTasks" :key="t">
-            <option :value="t" x-text="t"></option>
-          </template>
-        </select>
+        <div class="task-filter" @click.outside="showTaskFilter = false">
+          <button type="button" class="filter-select task-filter-toggle"
+                  @click="showTaskFilter = !showTaskFilter"
+                  x-text="taskFilterLabel"
+                  :class="{'has-selection': filterTasks.length > 0 && filterTasks.length < uniqueTasks.length}"></button>
+          <div class="task-filter-panel" x-show="showTaskFilter" x-cloak x-transition>
+            <div class="task-filter-head">
+              <button type="button" class="task-filter-linkbtn" @click="selectAllTasks()">전체 선택</button>
+              <button type="button" class="task-filter-linkbtn" @click="clearAllTasks()">해제</button>
+            </div>
+            <div class="task-filter-list">
+              <template x-for="t in uniqueTasks" :key="t">
+                <label class="task-filter-item">
+                  <input type="checkbox" :value="t"
+                         :checked="filterTasks.includes(t)"
+                         @change="toggleTaskFilter(t)">
+                  <span x-text="t"></span>
+                </label>
+              </template>
+              <div class="task-filter-empty" x-show="uniqueTasks.length === 0">등록된 업무가 없습니다</div>
+            </div>
+          </div>
+        </div>
         <select x-model="filterMemberId" class="filter-select" title="구성원 필터">
           <option value="">전체 구성원</option>
           <template x-for="m in allMembers" :key="m.id">
             <option :value="m.id" x-text="`${m.name} (${m.task || '-'})`"></option>
           </template>
         </select>
-        <button x-show="filterTask || filterMemberId"
-                @click="filterTask=''; filterMemberId=''"
+        <button x-show="filterTasks.length > 0 || filterMemberId"
+                @click="filterTasks=[]; filterMemberId=''"
                 class="btn-icon" title="필터 해제">✕</button>
       </div>
     </div>

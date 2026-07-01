@@ -204,6 +204,77 @@ body {
 .filter-select:hover { border-color: var(--ink-2); }
 .filter-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
 
+/* Multi-select task filter */
+[x-cloak] { display: none !important; }
+.task-filter { position: relative; }
+.task-filter-toggle {
+  text-align: left;
+  min-width: 140px;
+  padding-right: 26px;
+  background-image: linear-gradient(45deg, transparent 46%, var(--muted) 46%, var(--muted) 54%, transparent 54%),
+                    linear-gradient(-45deg, transparent 46%, var(--muted) 46%, var(--muted) 54%, transparent 54%);
+  background-size: 6px 6px, 6px 6px;
+  background-position: right 10px top 12px, right 6px top 12px;
+  background-repeat: no-repeat;
+  font-family: inherit;
+}
+.task-filter-toggle.has-selection {
+  border-color: var(--accent);
+  color: var(--accent-2);
+  background-color: var(--accent-soft);
+}
+.task-filter-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 60;
+  min-width: 220px;
+  max-width: 280px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(43, 40, 35, 0.12);
+  padding: 8px;
+}
+.task-filter-head {
+  display: flex;
+  gap: 4px;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+.task-filter-linkbtn {
+  border: none;
+  background: transparent;
+  color: var(--accent-2);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-family: inherit;
+}
+.task-filter-linkbtn:hover { background: var(--accent-soft); }
+.task-filter-list { max-height: 240px; overflow-y: auto; }
+.task-filter-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  font-size: 12.5px;
+  color: var(--ink);
+  cursor: pointer;
+  border-radius: 6px;
+}
+.task-filter-item:hover { background: var(--surface-2); }
+.task-filter-item input[type=checkbox] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.task-filter-empty { padding: 12px; text-align: center; color: var(--faint); font-size: 12px; }
+
 /* === TIMELINE CONTAINER === */
 .timeline-container {
   height: calc(100vh - 65px);
@@ -272,20 +343,26 @@ body {
 .project-row .project-cell:not(.filled):not(.preview):hover { background: var(--surface-2); }
 .member-row .cell:not(.filled):not(.preview):hover { background: var(--surface-2); }
 
-/* Today column highlight */
+/* Today column highlight — more prominent */
 .header-cell.week-header.today-week {
-  background: var(--accent-soft);
-  color: var(--accent-2);
+  background: var(--accent);
+  color: white;
+  border-left: 2px solid var(--accent-2);
+  border-right: 2px solid var(--accent-2);
+  box-shadow: 0 2px 0 var(--accent-2);
 }
-.header-cell.week-header.today-week .week-num { color: var(--accent-2); }
+.header-cell.week-header.today-week .week-num { color: white; font-weight: 700; }
+.header-cell.week-header.today-week .week-date { color: rgba(255,255,255,0.85); }
+
 .cell.today-week:not(.filled):not(.preview) {
-  background: rgba(201, 100, 66, 0.05);
-  border-left: 1px solid rgba(201, 100, 66, 0.35);
-  border-right: 1px solid rgba(201, 100, 66, 0.35);
+  background: rgba(201, 100, 66, 0.13);
+  border-left: 2px solid rgba(201, 100, 66, 0.55);
+  border-right: 2px solid rgba(201, 100, 66, 0.55);
 }
-.header-cell.week-header.today-week {
-  border-left: 1px solid rgba(201, 100, 66, 0.4);
-  border-right: 1px solid rgba(201, 100, 66, 0.4);
+.cell.today-week.filled,
+.cell.today-week.preview {
+  border-left: 2px solid var(--accent-2);
+  border-right: 2px solid var(--accent-2);
 }
 
 /* Project memo indicator dot */
@@ -661,20 +738,37 @@ body {
       </div>
       <div class="today-pill" x-text="todayLabel" title="오늘 날짜와 ISO 주차"></div>
       <div class="filters">
-        <select x-model="filterTask" class="filter-select" title="업무 필터">
-          <option value="">전체 업무</option>
-          <template x-for="t in uniqueTasks" :key="t">
-            <option :value="t" x-text="t"></option>
-          </template>
-        </select>
+        <div class="task-filter" @click.outside="showTaskFilter = false">
+          <button type="button" class="filter-select task-filter-toggle"
+                  @click="showTaskFilter = !showTaskFilter"
+                  x-text="taskFilterLabel"
+                  :class="{'has-selection': filterTasks.length > 0 && filterTasks.length < uniqueTasks.length}"></button>
+          <div class="task-filter-panel" x-show="showTaskFilter" x-cloak x-transition>
+            <div class="task-filter-head">
+              <button type="button" class="task-filter-linkbtn" @click="selectAllTasks()">전체 선택</button>
+              <button type="button" class="task-filter-linkbtn" @click="clearAllTasks()">해제</button>
+            </div>
+            <div class="task-filter-list">
+              <template x-for="t in uniqueTasks" :key="t">
+                <label class="task-filter-item">
+                  <input type="checkbox" :value="t"
+                         :checked="filterTasks.includes(t)"
+                         @change="toggleTaskFilter(t)">
+                  <span x-text="t"></span>
+                </label>
+              </template>
+              <div class="task-filter-empty" x-show="uniqueTasks.length === 0">등록된 업무가 없습니다</div>
+            </div>
+          </div>
+        </div>
         <select x-model="filterMemberId" class="filter-select" title="구성원 필터">
           <option value="">전체 구성원</option>
           <template x-for="m in allMembers" :key="m.id">
             <option :value="m.id" x-text="`${m.name} (${m.task || '-'})`"></option>
           </template>
         </select>
-        <button x-show="filterTask || filterMemberId"
-                @click="filterTask=''; filterMemberId=''"
+        <button x-show="filterTasks.length > 0 || filterMemberId"
+                @click="filterTasks=[]; filterMemberId=''"
                 class="btn-icon" title="필터 해제">✕</button>
       </div>
     </div>
@@ -1000,7 +1094,8 @@ function app() {
     },
 
     // Right panel
-    filterTask: '',
+    filterTasks: [],
+    showTaskFilter: false,
     filterMemberId: '',
 
     selectedMember: null,
@@ -1243,16 +1338,34 @@ function app() {
       return [...new Set(this.allMembers.map(m => m.task))].filter(Boolean).sort();
     },
 
+    get taskFilterLabel() {
+      const total = this.uniqueTasks.length;
+      const picked = this.filterTasks.length;
+      if (picked === 0 || picked === total) return '업무: 전체';
+      if (picked === 1) return `업무: ${this.filterTasks[0]}`;
+      return `업무: ${picked}개 선택`;
+    },
+
+    toggleTaskFilter(task) {
+      const i = this.filterTasks.indexOf(task);
+      if (i >= 0) this.filterTasks = this.filterTasks.filter(t => t !== task);
+      else this.filterTasks = [...this.filterTasks, task];
+    },
+
+    selectAllTasks() { this.filterTasks = [...this.uniqueTasks]; },
+    clearAllTasks() { this.filterTasks = []; },
+
     get visibleProjects() {
       const memId = this.filterMemberId ? parseInt(this.filterMemberId) : null;
-      const task = this.filterTask;
-      if (!memId && !task) return this.projects;
+      const taskSet = this.filterTasks.length > 0 && this.filterTasks.length < this.uniqueTasks.length
+                      ? new Set(this.filterTasks) : null;
+      if (!memId && !taskSet) return this.projects;
       return this.projects
         .map(p => ({
           ...p,
           members: p.members.filter(m => {
             if (memId && m.id !== memId) return false;
-            if (task && m.task !== task) return false;
+            if (taskSet && !taskSet.has(m.task)) return false;
             return true;
           })
         }))
