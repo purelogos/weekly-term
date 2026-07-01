@@ -579,6 +579,7 @@ body {
     <!-- PROJECT ROWS + MEMBER SUB-ROWS -->
     <div class="timeline-rows">
       <template x-for="project in projects" :key="project.id">
+        <div style="display: contents">
         <!-- PROJECT ROW -->
         <div class="row project-row" :style="`--project-color: ${project.color};`">
           <div class="name-cell project-name" @click="toggleProject(project.id)">
@@ -632,6 +633,7 @@ body {
             </template>
           </div>
         </template>
+        </div>
       </template>
     </div>
   </main>
