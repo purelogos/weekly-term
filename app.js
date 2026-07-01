@@ -79,6 +79,7 @@ function app() {
     // Form data
     newProject: { name: '', color: '#3b82f6' },
     newMember: { memberId: null },
+    memberPickerSearch: '',
     createMember: { name: '', task: '', years: '' },
     editMemberForm: { name: '', task: '', years: '' },
     logEventForm: { type: '전배', date: dayjs().format('YYYY-MM-DD'), note: '', score: null },
@@ -463,6 +464,39 @@ function app() {
     async removeMemberFromProject(assignmentId, memberName, projectName) {
       if (!confirm(`"${memberName}"을(를) "${projectName}" 프로젝트에서 제외합니다.\n(구성원 자체는 유지됩니다)\n계속하시겠습니까?`)) return;
       await db.assignments.delete(assignmentId);
+      await this.loadTimeline();
+    },
+
+    get pickerMembers() {
+      const q = (this.memberPickerSearch || '').trim().toLowerCase();
+      const list = this.sortedMembers;
+      if (!q) return list;
+      return list.filter(m =>
+        (m.name || '').toLowerCase().includes(q) ||
+        (m.task || '').toLowerCase().includes(q) ||
+        (m.years || '').toLowerCase().includes(q)
+      );
+    },
+
+    isMemberInTargetProject(memberId) {
+      const pid = this.addMemberTargetProjectId;
+      if (!pid) return false;
+      const p = this.projects.find(x => x.id === pid);
+      if (!p) return false;
+      return p.members.some(m => m.id === memberId);
+    },
+
+    async addMemberFromPicker(memberId) {
+      if (!this.addMemberTargetProjectId) return;
+      if (this.isMemberInTargetProject(memberId)) return;
+      const projectId = parseInt(this.addMemberTargetProjectId);
+      await db.assignments.add({
+        memberId: parseInt(memberId),
+        projectId,
+        weeks: [],
+        memo: ''
+      });
+      this.expandedProjects = { ...this.expandedProjects, [projectId]: true };
       await this.loadTimeline();
     },
 

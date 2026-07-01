@@ -846,6 +846,56 @@ body {
 .phase-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
 .phase-btn:active { transform: translateY(0); }
 
+/* === MEMBER PICKER MODAL === */
+.member-picker-modal { min-width: 480px; max-width: 560px; }
+.picker-search {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--ink);
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  margin-bottom: 10px;
+}
+.picker-search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.picker-list {
+  max-height: 340px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.picker-row {
+  display: grid;
+  grid-template-columns: 44px 1.2fr 1fr 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.12s;
+}
+.picker-row:last-child { border-bottom: none; }
+.picker-row:hover:not(.added) { background: var(--surface-2); }
+.picker-row.added { opacity: 0.5; cursor: not-allowed; }
+.picker-id { color: var(--muted); font-family: 'SF Mono', ui-monospace, Menlo, monospace; font-size: 11px; }
+.picker-name { font-weight: 600; color: var(--ink); }
+.picker-task { color: var(--ink-2); font-size: 12px; }
+.picker-years { color: var(--muted); font-size: 12px; }
+.picker-added {
+  font-size: 10.5px;
+  color: var(--ok);
+  border: 1px solid var(--ok);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.picker-empty { padding: 24px; text-align: center; color: var(--faint); font-size: 12.5px; }
+
 /* === SCROLLBARS === */
 .timeline-container::-webkit-scrollbar,
 .member-panel::-webkit-scrollbar,
@@ -1122,20 +1172,36 @@ body {
   </div>
 
   <!-- Add Member Modal -->
-  <div class="modal-backdrop" x-show="showAddMemberModal" @click.self="showAddMemberModal = false">
-    <div class="modal">
+  <div class="modal-backdrop" x-show="showAddMemberModal" @click.self="showAddMemberModal = false; memberPickerSearch=''">
+    <div class="modal member-picker-modal">
       <h2>새 구성원 추가</h2>
-      <form @submit.prevent="addMemberToProject" class="form">
-        <select x-model="newMember.memberId">
-          <option value="">기존 구성원 선택</option>
-          <template x-for="m in allMembers" :key="m.id">
-            <option :value="m.id" x-text="`${m.name} (${m.task || '-'})`"></option>
-          </template>
-        </select>
-        <button type="button" @click="showAddMemberModal = false; showCreateMemberModal = true;" class="btn">+ 새 구성원 생성</button>
-        <button type="submit" class="btn btn-primary" :disabled="!newMember.memberId">목록에서 추가</button>
-        <button type="button" @click="showAddMemberModal = false; addMemberTargetProjectId = null; newMember = {memberId: null};" class="btn">닫기</button>
-      </form>
+      <p class="phase-hint">
+        정렬 순서: <b x-text="({id:'ID', name:'이름', task:'업무', years:'기타'})[memberSortField]"></b>
+        <span x-text="memberSortAsc ? ' ▲' : ' ▼'"></span>
+        · <a class="task-filter-linkbtn" style="text-decoration:underline; cursor:pointer;"
+             @click="showAddMemberModal=false; showManageMembersModal=true;">정렬 변경</a>
+      </p>
+      <input type="text" class="picker-search" placeholder="이름 · 업무 · 기타 검색..."
+             x-model="memberPickerSearch" autofocus>
+      <div class="picker-list">
+        <template x-for="m in pickerMembers" :key="m.id">
+          <div class="picker-row"
+               :class="{'added': isMemberInTargetProject(m.id)}"
+               @click="!isMemberInTargetProject(m.id) && addMemberFromPicker(m.id)">
+            <span class="picker-id" x-text="`#${m.id}`"></span>
+            <span class="picker-name" x-text="m.name"></span>
+            <span class="picker-task" x-text="m.task || ''"></span>
+            <span class="picker-years" x-text="m.years || ''"></span>
+            <span class="picker-added" x-show="isMemberInTargetProject(m.id)">추가됨</span>
+          </div>
+        </template>
+        <div class="picker-empty" x-show="pickerMembers.length === 0"
+             x-text="allMembers.length === 0 ? '등록된 구성원이 없습니다' : '검색 결과 없음'"></div>
+      </div>
+      <div style="display:flex; justify-content:space-between; gap:8px; margin-top:14px;">
+        <button type="button" class="btn" @click="showAddMemberModal = false; showCreateMemberModal = true;">+ 새 구성원 생성</button>
+        <button type="button" class="btn" @click="showAddMemberModal = false; addMemberTargetProjectId = null; memberPickerSearch=''">닫기</button>
+      </div>
     </div>
   </div>
 
@@ -1335,6 +1401,7 @@ function app() {
     // Form data
     newProject: { name: '', color: '#3b82f6' },
     newMember: { memberId: null },
+    memberPickerSearch: '',
     createMember: { name: '', task: '', years: '' },
     editMemberForm: { name: '', task: '', years: '' },
     logEventForm: { type: '전배', date: dayjs().format('YYYY-MM-DD'), note: '', score: null },
@@ -1691,6 +1758,39 @@ function app() {
     async removeMemberFromProject(assignmentId, memberName, projectName) {
       if (!confirm(`"${memberName}"을(를) "${projectName}" 프로젝트에서 제외합니다.\n(구성원 자체는 유지됩니다)\n계속하시겠습니까?`)) return;
       await db.assignments.delete(assignmentId);
+      await this.loadTimeline();
+    },
+
+    get pickerMembers() {
+      const q = (this.memberPickerSearch || '').trim().toLowerCase();
+      const list = this.sortedMembers;
+      if (!q) return list;
+      return list.filter(m =>
+        (m.name || '').toLowerCase().includes(q) ||
+        (m.task || '').toLowerCase().includes(q) ||
+        (m.years || '').toLowerCase().includes(q)
+      );
+    },
+
+    isMemberInTargetProject(memberId) {
+      const pid = this.addMemberTargetProjectId;
+      if (!pid) return false;
+      const p = this.projects.find(x => x.id === pid);
+      if (!p) return false;
+      return p.members.some(m => m.id === memberId);
+    },
+
+    async addMemberFromPicker(memberId) {
+      if (!this.addMemberTargetProjectId) return;
+      if (this.isMemberInTargetProject(memberId)) return;
+      const projectId = parseInt(this.addMemberTargetProjectId);
+      await db.assignments.add({
+        memberId: parseInt(memberId),
+        projectId,
+        weeks: [],
+        memo: ''
+      });
+      this.expandedProjects = { ...this.expandedProjects, [projectId]: true };
       await this.loadTimeline();
     },
 

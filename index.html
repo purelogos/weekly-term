@@ -277,20 +277,36 @@
   </div>
 
   <!-- Add Member Modal -->
-  <div class="modal-backdrop" x-show="showAddMemberModal" @click.self="showAddMemberModal = false">
-    <div class="modal">
+  <div class="modal-backdrop" x-show="showAddMemberModal" @click.self="showAddMemberModal = false; memberPickerSearch=''">
+    <div class="modal member-picker-modal">
       <h2>새 구성원 추가</h2>
-      <form @submit.prevent="addMemberToProject" class="form">
-        <select x-model="newMember.memberId">
-          <option value="">기존 구성원 선택</option>
-          <template x-for="m in allMembers" :key="m.id">
-            <option :value="m.id" x-text="`${m.name} (${m.task || '-'})`"></option>
-          </template>
-        </select>
-        <button type="button" @click="showAddMemberModal = false; showCreateMemberModal = true;" class="btn">+ 새 구성원 생성</button>
-        <button type="submit" class="btn btn-primary" :disabled="!newMember.memberId">목록에서 추가</button>
-        <button type="button" @click="showAddMemberModal = false; addMemberTargetProjectId = null; newMember = {memberId: null};" class="btn">닫기</button>
-      </form>
+      <p class="phase-hint">
+        정렬 순서: <b x-text="({id:'ID', name:'이름', task:'업무', years:'기타'})[memberSortField]"></b>
+        <span x-text="memberSortAsc ? ' ▲' : ' ▼'"></span>
+        · <a class="task-filter-linkbtn" style="text-decoration:underline; cursor:pointer;"
+             @click="showAddMemberModal=false; showManageMembersModal=true;">정렬 변경</a>
+      </p>
+      <input type="text" class="picker-search" placeholder="이름 · 업무 · 기타 검색..."
+             x-model="memberPickerSearch" autofocus>
+      <div class="picker-list">
+        <template x-for="m in pickerMembers" :key="m.id">
+          <div class="picker-row"
+               :class="{'added': isMemberInTargetProject(m.id)}"
+               @click="!isMemberInTargetProject(m.id) && addMemberFromPicker(m.id)">
+            <span class="picker-id" x-text="`#${m.id}`"></span>
+            <span class="picker-name" x-text="m.name"></span>
+            <span class="picker-task" x-text="m.task || ''"></span>
+            <span class="picker-years" x-text="m.years || ''"></span>
+            <span class="picker-added" x-show="isMemberInTargetProject(m.id)">추가됨</span>
+          </div>
+        </template>
+        <div class="picker-empty" x-show="pickerMembers.length === 0"
+             x-text="allMembers.length === 0 ? '등록된 구성원이 없습니다' : '검색 결과 없음'"></div>
+      </div>
+      <div style="display:flex; justify-content:space-between; gap:8px; margin-top:14px;">
+        <button type="button" class="btn" @click="showAddMemberModal = false; showCreateMemberModal = true;">+ 새 구성원 생성</button>
+        <button type="button" class="btn" @click="showAddMemberModal = false; addMemberTargetProjectId = null; memberPickerSearch=''">닫기</button>
+      </div>
     </div>
   </div>
 
