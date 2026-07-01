@@ -31,25 +31,26 @@
         <button @click="nextYear()" class="btn-icon">▶</button>
       </div>
       <div class="filters">
-        <select x-model="filterDepartment" class="filter-select" title="부서 필터">
-          <option value="">전체 부서</option>
-          <template x-for="d in uniqueDepartments" :key="d">
-            <option :value="d" x-text="d"></option>
+        <select x-model="filterTask" class="filter-select" title="업무 필터">
+          <option value="">전체 업무</option>
+          <template x-for="t in uniqueTasks" :key="t">
+            <option :value="t" x-text="t"></option>
           </template>
         </select>
         <select x-model="filterMemberId" class="filter-select" title="구성원 필터">
           <option value="">전체 구성원</option>
           <template x-for="m in allMembers" :key="m.id">
-            <option :value="m.id" x-text="`${m.name} (${m.department})`"></option>
+            <option :value="m.id" x-text="`${m.name} (${m.task || '-'})`"></option>
           </template>
         </select>
-        <button x-show="filterDepartment || filterMemberId"
-                @click="filterDepartment=''; filterMemberId=''"
+        <button x-show="filterTask || filterMemberId"
+                @click="filterTask=''; filterMemberId=''"
                 class="btn-icon" title="필터 해제">✕</button>
       </div>
     </div>
     <div class="header-right">
       <button @click="showAddProjectModal = true" class="btn btn-primary">+ 프로젝트</button>
+      <button @click="showManageMembersModal = true" class="btn">구성원 관리</button>
       <button @click="exportJSON()" class="btn">내보내기</button>
       <button @click="importJSON()" class="btn">가져오기</button>
       <input type="file" id="import-file" accept=".json" @change="handleFileImport" style="display:none;">
@@ -137,8 +138,12 @@
     <template x-if="selectedMember">
       <div class="panel-content">
         <button class="btn-close" @click="selectedMember = null">✕</button>
-        <h3 x-text="`${selectedMember.name} (${selectedMember.department})`"></h3>
-        <p class="member-grade" x-text="`직급: ${selectedMember.grade}`"></p>
+        <h3 x-text="`${selectedMember.name} (${selectedMember.task || '-'})`"></h3>
+        <p class="member-grade" x-text="`연차: ${selectedMember.years || '-'}`"></p>
+        <div style="display:flex; gap:6px; margin-bottom:12px;">
+          <button class="btn" @click="beginEditMember(selectedMember); showManageMembersModal = true;">편집</button>
+          <button class="btn" @click="deleteMember(selectedMember.id)" style="color:#dc2626;">삭제</button>
+        </div>
 
         <!-- Assignment History -->
         <h4>배정 이력</h4>
@@ -202,7 +207,7 @@
         <select x-model="newMember.memberId">
           <option value="">기존 구성원 선택</option>
           <template x-for="m in allMembers" :key="m.id">
-            <option :value="m.id" x-text="`${m.name} (${m.department})`"></option>
+            <option :value="m.id" x-text="`${m.name} (${m.task || '-'})`"></option>
           </template>
         </select>
         <button type="button" @click="showAddMemberModal = false; showCreateMemberModal = true;" class="btn">+ 새 구성원 생성</button>
@@ -218,16 +223,8 @@
       <h2>새 구성원 생성</h2>
       <form @submit.prevent="createNewMember" class="form">
         <input type="text" placeholder="이름" x-model="createMember.name" required>
-        <input type="text" placeholder="부서" x-model="createMember.department" required>
-        <select x-model="createMember.grade" required>
-          <option value="">직급 선택</option>
-          <option value="사원">사원</option>
-          <option value="주임">주임</option>
-          <option value="대리">대리</option>
-          <option value="과장">과장</option>
-          <option value="차장">차장</option>
-          <option value="부장">부장</option>
-        </select>
+        <input type="text" placeholder="업무 (예: 프론트엔드, PM)" x-model="createMember.task">
+        <input type="text" placeholder="연차 (예: 3년, 신입)" x-model="createMember.years">
         <button type="submit" class="btn btn-primary">생성</button>
         <button type="button" @click="showCreateMemberModal = false" class="btn">취소</button>
       </form>
@@ -260,6 +257,64 @@
         <button type="submit" class="btn btn-primary">기록</button>
         <button type="button" @click="showLogEventModal = false" class="btn">취소</button>
       </form>
+    </div>
+  </div>
+
+  <!-- Manage Members Modal -->
+  <div class="modal-backdrop" x-show="showManageMembersModal" @click.self="showManageMembersModal = false; cancelEditMember();">
+    <div class="modal" style="min-width:640px; max-width:800px;">
+      <h2>구성원 관리</h2>
+      <p x-show="allMembers.length === 0" class="no-data">등록된 구성원이 없습니다.</p>
+      <table class="member-table" x-show="allMembers.length > 0">
+        <thead>
+          <tr><th>이름</th><th>업무</th><th>연차</th><th style="width:150px;">작업</th></tr>
+        </thead>
+        <tbody>
+          <template x-for="m in allMembers" :key="m.id">
+            <tr>
+              <template x-if="editingMemberId !== m.id">
+                <td x-text="m.name"></td>
+              </template>
+              <template x-if="editingMemberId === m.id">
+                <td><input type="text" x-model="editMemberForm.name" class="edit-input"></td>
+              </template>
+
+              <template x-if="editingMemberId !== m.id">
+                <td x-text="m.task || '-'"></td>
+              </template>
+              <template x-if="editingMemberId === m.id">
+                <td><input type="text" x-model="editMemberForm.task" class="edit-input"></td>
+              </template>
+
+              <template x-if="editingMemberId !== m.id">
+                <td x-text="m.years || '-'"></td>
+              </template>
+              <template x-if="editingMemberId === m.id">
+                <td><input type="text" x-model="editMemberForm.years" class="edit-input"></td>
+              </template>
+
+              <td>
+                <template x-if="editingMemberId !== m.id">
+                  <div style="display:flex; gap:4px;">
+                    <button class="btn" @click="beginEditMember(m)">편집</button>
+                    <button class="btn" @click="deleteMember(m.id)" style="color:#dc2626;">삭제</button>
+                  </div>
+                </template>
+                <template x-if="editingMemberId === m.id">
+                  <div style="display:flex; gap:4px;">
+                    <button class="btn btn-primary" @click="saveEditMember()">저장</button>
+                    <button class="btn" @click="cancelEditMember()">취소</button>
+                  </div>
+                </template>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+      <div style="display:flex; justify-content:space-between; gap:8px; margin-top:16px;">
+        <button class="btn btn-primary" @click="showManageMembersModal = false; addMemberTargetProjectId = null; showCreateMemberModal = true;">+ 새 구성원 생성</button>
+        <button class="btn" @click="showManageMembersModal = false; cancelEditMember();">닫기</button>
+      </div>
     </div>
   </div>
 

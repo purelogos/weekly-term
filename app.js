@@ -39,7 +39,7 @@ function app() {
     },
 
     // Filters
-    filterDepartment: '',
+    filterTask: '',
     filterMemberId: '',
 
     // Right panel
@@ -52,13 +52,16 @@ function app() {
     showAddMemberModal: false,
     showCreateMemberModal: false,
     showLogEventModal: false,
+    showManageMembersModal: false,
     addMemberTargetProjectId: null,
     logEventTargetMemberId: null,
+    editingMemberId: null,
 
     // Form data
     newProject: { name: '', color: '#3b82f6' },
     newMember: { memberId: null },
-    createMember: { name: '', department: '', grade: '' },
+    createMember: { name: '', task: '', years: '' },
+    editMemberForm: { name: '', task: '', years: '' },
     logEventForm: { type: '전배', date: dayjs().format('YYYY-MM-DD'), note: '', score: null },
 
     // ========== INITIALIZATION ==========
@@ -74,7 +77,12 @@ function app() {
       try {
         const projects = await db.projects.where('year').equals(this.currentYear).toArray();
         const assignments = await db.assignments.toArray();
-        const members = await db.members.toArray();
+        const rawMembers = await db.members.toArray();
+        const members = rawMembers.map(m => ({
+          ...m,
+          task: m.task ?? m.department ?? '',
+          years: m.years ?? m.grade ?? ''
+        }));
 
         this.allMembers = members;
         const today = dayjs().format('YYYY-MM-DD');
@@ -215,20 +223,20 @@ function app() {
       return !!this.expandedProjects[projectId];
     },
 
-    get uniqueDepartments() {
-      return [...new Set(this.allMembers.map(m => m.department))].filter(Boolean).sort();
+    get uniqueTasks() {
+      return [...new Set(this.allMembers.map(m => m.task))].filter(Boolean).sort();
     },
 
     get visibleProjects() {
       const memId = this.filterMemberId ? parseInt(this.filterMemberId) : null;
-      const dept = this.filterDepartment;
-      if (!memId && !dept) return this.projects;
+      const task = this.filterTask;
+      if (!memId && !task) return this.projects;
       return this.projects
         .map(p => ({
           ...p,
           members: p.members.filter(m => {
             if (memId && m.id !== memId) return false;
-            if (dept && m.department !== dept) return false;
+            if (task && m.task !== task) return false;
             return true;
           })
         }))
@@ -263,12 +271,12 @@ function app() {
     },
 
     async createNewMember() {
-      if (!this.createMember.name.trim() || !this.createMember.department.trim()) return;
+      if (!this.createMember.name.trim()) return;
 
       const memberId = await db.members.add({
-        name: this.createMember.name,
-        department: this.createMember.department,
-        grade: this.createMember.grade,
+        name: this.createMember.name.trim(),
+        task: this.createMember.task.trim(),
+        years: this.createMember.years.trim(),
         status: 'active',
         skills: []
       });
@@ -284,9 +292,50 @@ function app() {
         this.expandedProjects = { ...this.expandedProjects, [this.addMemberTargetProjectId]: true };
       }
 
-      this.createMember = { name: '', department: '', grade: '' };
+      this.createMember = { name: '', task: '', years: '' };
       this.showCreateMemberModal = false;
       this.addMemberTargetProjectId = null;
+      await this.loadTimeline();
+    },
+
+    beginEditMember(member) {
+      this.editingMemberId = member.id;
+      this.editMemberForm = {
+        name: member.name || '',
+        task: member.task || '',
+        years: member.years || ''
+      };
+    },
+
+    cancelEditMember() {
+      this.editingMemberId = null;
+      this.editMemberForm = { name: '', task: '', years: '' };
+    },
+
+    async saveEditMember() {
+      if (!this.editingMemberId) return;
+      if (!this.editMemberForm.name.trim()) return;
+      await db.members.update(this.editingMemberId, {
+        name: this.editMemberForm.name.trim(),
+        task: this.editMemberForm.task.trim(),
+        years: this.editMemberForm.years.trim()
+      });
+      this.editingMemberId = null;
+      await this.loadTimeline();
+      if (this.selectedMember) {
+        await this.selectMember(this.selectedMember.id);
+      }
+    },
+
+    async deleteMember(memberId) {
+      const member = this.allMembers.find(m => m.id === memberId);
+      const label = member ? member.name : '이 구성원';
+      if (!confirm(`${label} 구성원을 삭제합니다.\n관련된 모든 프로젝트 배정과 이벤트도 함께 삭제됩니다.\n계속하시겠습니까?`)) return;
+      await db.assignments.where('memberId').equals(memberId).delete();
+      await db.events.where('memberId').equals(memberId).delete();
+      await db.members.delete(memberId);
+      if (this.selectedMember?.id === memberId) this.selectedMember = null;
+      this.editingMemberId = null;
       await this.loadTimeline();
     },
 

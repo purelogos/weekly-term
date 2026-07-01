@@ -241,6 +241,30 @@ body {
   max-width: 180px;
 }
 
+.member-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.member-table th, .member-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+}
+.member-table th {
+  background: #f9fafb;
+  font-weight: 600;
+  color: #374151;
+  font-size: 12px;
+}
+.edit-input {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  font-size: 13px;
+}
+
 /* === NAME CELLS === */
 .name-cell {
   position: sticky;
@@ -580,25 +604,26 @@ body {
         <button @click="nextYear()" class="btn-icon">▶</button>
       </div>
       <div class="filters">
-        <select x-model="filterDepartment" class="filter-select" title="부서 필터">
-          <option value="">전체 부서</option>
-          <template x-for="d in uniqueDepartments" :key="d">
-            <option :value="d" x-text="d"></option>
+        <select x-model="filterTask" class="filter-select" title="업무 필터">
+          <option value="">전체 업무</option>
+          <template x-for="t in uniqueTasks" :key="t">
+            <option :value="t" x-text="t"></option>
           </template>
         </select>
         <select x-model="filterMemberId" class="filter-select" title="구성원 필터">
           <option value="">전체 구성원</option>
           <template x-for="m in allMembers" :key="m.id">
-            <option :value="m.id" x-text="`${m.name} (${m.department})`"></option>
+            <option :value="m.id" x-text="`${m.name} (${m.task || '-'})`"></option>
           </template>
         </select>
-        <button x-show="filterDepartment || filterMemberId"
-                @click="filterDepartment=''; filterMemberId=''"
+        <button x-show="filterTask || filterMemberId"
+                @click="filterTask=''; filterMemberId=''"
                 class="btn-icon" title="필터 해제">✕</button>
       </div>
     </div>
     <div class="header-right">
       <button @click="showAddProjectModal = true" class="btn btn-primary">+ 프로젝트</button>
+      <button @click="showManageMembersModal = true" class="btn">구성원 관리</button>
       <button @click="exportJSON()" class="btn">내보내기</button>
       <button @click="importJSON()" class="btn">가져오기</button>
       <input type="file" id="import-file" accept=".json" @change="handleFileImport" style="display:none;">
@@ -686,8 +711,12 @@ body {
     <template x-if="selectedMember">
       <div class="panel-content">
         <button class="btn-close" @click="selectedMember = null">✕</button>
-        <h3 x-text="`${selectedMember.name} (${selectedMember.department})`"></h3>
-        <p class="member-grade" x-text="`직급: ${selectedMember.grade}`"></p>
+        <h3 x-text="`${selectedMember.name} (${selectedMember.task || '-'})`"></h3>
+        <p class="member-grade" x-text="`연차: ${selectedMember.years || '-'}`"></p>
+        <div style="display:flex; gap:6px; margin-bottom:12px;">
+          <button class="btn" @click="beginEditMember(selectedMember); showManageMembersModal = true;">편집</button>
+          <button class="btn" @click="deleteMember(selectedMember.id)" style="color:#dc2626;">삭제</button>
+        </div>
 
         <!-- Assignment History -->
         <h4>배정 이력</h4>
@@ -751,7 +780,7 @@ body {
         <select x-model="newMember.memberId">
           <option value="">기존 구성원 선택</option>
           <template x-for="m in allMembers" :key="m.id">
-            <option :value="m.id" x-text="`${m.name} (${m.department})`"></option>
+            <option :value="m.id" x-text="`${m.name} (${m.task || '-'})`"></option>
           </template>
         </select>
         <button type="button" @click="showAddMemberModal = false; showCreateMemberModal = true;" class="btn">+ 새 구성원 생성</button>
@@ -767,16 +796,8 @@ body {
       <h2>새 구성원 생성</h2>
       <form @submit.prevent="createNewMember" class="form">
         <input type="text" placeholder="이름" x-model="createMember.name" required>
-        <input type="text" placeholder="부서" x-model="createMember.department" required>
-        <select x-model="createMember.grade" required>
-          <option value="">직급 선택</option>
-          <option value="사원">사원</option>
-          <option value="주임">주임</option>
-          <option value="대리">대리</option>
-          <option value="과장">과장</option>
-          <option value="차장">차장</option>
-          <option value="부장">부장</option>
-        </select>
+        <input type="text" placeholder="업무 (예: 프론트엔드, PM)" x-model="createMember.task">
+        <input type="text" placeholder="연차 (예: 3년, 신입)" x-model="createMember.years">
         <button type="submit" class="btn btn-primary">생성</button>
         <button type="button" @click="showCreateMemberModal = false" class="btn">취소</button>
       </form>
@@ -809,6 +830,49 @@ body {
         <button type="submit" class="btn btn-primary">기록</button>
         <button type="button" @click="showLogEventModal = false" class="btn">취소</button>
       </form>
+    </div>
+  </div>
+
+  <!-- Manage Members Modal -->
+  <div class="modal-backdrop" x-show="showManageMembersModal" @click.self="showManageMembersModal = false; cancelEditMember();">
+    <div class="modal" style="min-width:640px; max-width:800px;">
+      <h2>구성원 관리</h2>
+      <p x-show="allMembers.length === 0" class="no-data">등록된 구성원이 없습니다.</p>
+      <table class="member-table" x-show="allMembers.length > 0">
+        <thead>
+          <tr><th>이름</th><th>업무</th><th>연차</th><th style="width:150px;">작업</th></tr>
+        </thead>
+        <tbody>
+          <template x-for="m in allMembers" :key="m.id">
+            <tr>
+              <template x-if="editingMemberId !== m.id"><td x-text="m.name"></td></template>
+              <template x-if="editingMemberId === m.id"><td><input type="text" x-model="editMemberForm.name" class="edit-input"></td></template>
+              <template x-if="editingMemberId !== m.id"><td x-text="m.task || '-'"></td></template>
+              <template x-if="editingMemberId === m.id"><td><input type="text" x-model="editMemberForm.task" class="edit-input"></td></template>
+              <template x-if="editingMemberId !== m.id"><td x-text="m.years || '-'"></td></template>
+              <template x-if="editingMemberId === m.id"><td><input type="text" x-model="editMemberForm.years" class="edit-input"></td></template>
+              <td>
+                <template x-if="editingMemberId !== m.id">
+                  <div style="display:flex; gap:4px;">
+                    <button class="btn" @click="beginEditMember(m)">편집</button>
+                    <button class="btn" @click="deleteMember(m.id)" style="color:#dc2626;">삭제</button>
+                  </div>
+                </template>
+                <template x-if="editingMemberId === m.id">
+                  <div style="display:flex; gap:4px;">
+                    <button class="btn btn-primary" @click="saveEditMember()">저장</button>
+                    <button class="btn" @click="cancelEditMember()">취소</button>
+                  </div>
+                </template>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+      <div style="display:flex; justify-content:space-between; gap:8px; margin-top:16px;">
+        <button class="btn btn-primary" @click="showManageMembersModal = false; addMemberTargetProjectId = null; showCreateMemberModal = true;">+ 새 구성원 생성</button>
+        <button class="btn" @click="showManageMembersModal = false; cancelEditMember();">닫기</button>
+      </div>
     </div>
   </div>
 
@@ -857,7 +921,7 @@ function app() {
     },
 
     // Right panel
-    filterDepartment: '',
+    filterTask: '',
     filterMemberId: '',
 
     selectedMember: null,
@@ -869,13 +933,16 @@ function app() {
     showAddMemberModal: false,
     showCreateMemberModal: false,
     showLogEventModal: false,
+    showManageMembersModal: false,
     addMemberTargetProjectId: null,
     logEventTargetMemberId: null,
+    editingMemberId: null,
 
     // Form data
     newProject: { name: '', color: '#3b82f6' },
     newMember: { memberId: null },
-    createMember: { name: '', department: '', grade: '' },
+    createMember: { name: '', task: '', years: '' },
+    editMemberForm: { name: '', task: '', years: '' },
     logEventForm: { type: '전배', date: dayjs().format('YYYY-MM-DD'), note: '', score: null },
 
     // ========== INITIALIZATION ==========
@@ -891,7 +958,12 @@ function app() {
       try {
         const projects = await db.projects.where('year').equals(this.currentYear).toArray();
         const assignments = await db.assignments.toArray();
-        const members = await db.members.toArray();
+        const rawMembers = await db.members.toArray();
+        const members = rawMembers.map(m => ({
+          ...m,
+          task: m.task ?? m.department ?? '',
+          years: m.years ?? m.grade ?? ''
+        }));
 
         this.allMembers = members;
         const today = dayjs().format('YYYY-MM-DD');
@@ -1032,20 +1104,20 @@ function app() {
       return !!this.expandedProjects[projectId];
     },
 
-    get uniqueDepartments() {
-      return [...new Set(this.allMembers.map(m => m.department))].filter(Boolean).sort();
+    get uniqueTasks() {
+      return [...new Set(this.allMembers.map(m => m.task))].filter(Boolean).sort();
     },
 
     get visibleProjects() {
       const memId = this.filterMemberId ? parseInt(this.filterMemberId) : null;
-      const dept = this.filterDepartment;
-      if (!memId && !dept) return this.projects;
+      const task = this.filterTask;
+      if (!memId && !task) return this.projects;
       return this.projects
         .map(p => ({
           ...p,
           members: p.members.filter(m => {
             if (memId && m.id !== memId) return false;
-            if (dept && m.department !== dept) return false;
+            if (task && m.task !== task) return false;
             return true;
           })
         }))
@@ -1079,6 +1151,47 @@ function app() {
       await this.loadTimeline();
     },
 
+    beginEditMember(member) {
+      this.editingMemberId = member.id;
+      this.editMemberForm = {
+        name: member.name || '',
+        task: member.task || '',
+        years: member.years || ''
+      };
+    },
+
+    cancelEditMember() {
+      this.editingMemberId = null;
+      this.editMemberForm = { name: '', task: '', years: '' };
+    },
+
+    async saveEditMember() {
+      if (!this.editingMemberId) return;
+      if (!this.editMemberForm.name.trim()) return;
+      await db.members.update(this.editingMemberId, {
+        name: this.editMemberForm.name.trim(),
+        task: this.editMemberForm.task.trim(),
+        years: this.editMemberForm.years.trim()
+      });
+      this.editingMemberId = null;
+      await this.loadTimeline();
+      if (this.selectedMember) {
+        await this.selectMember(this.selectedMember.id);
+      }
+    },
+
+    async deleteMember(memberId) {
+      const member = this.allMembers.find(m => m.id === memberId);
+      const label = member ? member.name : '이 구성원';
+      if (!confirm(`${label} 구성원을 삭제합니다.\n관련된 모든 프로젝트 배정과 이벤트도 함께 삭제됩니다.\n계속하시겠습니까?`)) return;
+      await db.assignments.where('memberId').equals(memberId).delete();
+      await db.events.where('memberId').equals(memberId).delete();
+      await db.members.delete(memberId);
+      if (this.selectedMember?.id === memberId) this.selectedMember = null;
+      this.editingMemberId = null;
+      await this.loadTimeline();
+    },
+
     async updateMemo(assignmentId, value) {
       await db.assignments.update(assignmentId, { memo: value });
       for (const project of this.projects) {
@@ -1088,12 +1201,12 @@ function app() {
     },
 
     async createNewMember() {
-      if (!this.createMember.name.trim() || !this.createMember.department.trim()) return;
+      if (!this.createMember.name.trim()) return;
 
       const memberId = await db.members.add({
-        name: this.createMember.name,
-        department: this.createMember.department,
-        grade: this.createMember.grade,
+        name: this.createMember.name.trim(),
+        task: this.createMember.task.trim(),
+        years: this.createMember.years.trim(),
         status: 'active',
         skills: []
       });
@@ -1109,7 +1222,7 @@ function app() {
         this.expandedProjects = { ...this.expandedProjects, [this.addMemberTargetProjectId]: true };
       }
 
-      this.createMember = { name: '', department: '', grade: '' };
+      this.createMember = { name: '', task: '', years: '' };
       this.showCreateMemberModal = false;
       this.addMemberTargetProjectId = null;
       await this.loadTimeline();
