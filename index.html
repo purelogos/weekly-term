@@ -82,6 +82,7 @@
             <span x-show="!isExpanded(project.id)">▶</span>
             <span x-text="project.name"></span>
             <button @click.stop="addMemberTargetProjectId = project.id; showAddMemberModal = true;" class="btn-icon-small">+ 구성원</button>
+            <button @click.stop="deleteProject(project.id)" class="btn-icon-small btn-danger" title="프로젝트 삭제">✕</button>
           </div>
           <div class="cell info-cell"></div>
           <div class="cell info-cell"></div>
@@ -92,10 +93,13 @@
               class="cell"
               :class="{
                 'filled': isProjectWeekFilled(project.id, weekIdx),
-                'preview': isProjectCellInDragPreview(project.id, weekIdx)
+                'preview': isProjectCellInDragPreview(project.id, weekIdx),
+                'has-memo': !!getProjectWeekMemo(project.id, weekIdx)
               }"
+              :title="getProjectWeekMemo(project.id, weekIdx)"
               @mousedown="startDrag('project', project.id, weekIdx)"
               @mouseover="updateDragPreview('project', project.id, weekIdx)"
+              @dblclick.prevent="editProjectWeekMemo(project.id, weekIdx)"
             ></div>
           </template>
         </div>

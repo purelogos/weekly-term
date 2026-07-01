@@ -118,7 +118,8 @@ function app() {
           return {
             ...project,
             members: projectMembers,
-            weeks: new Set(project.weeks || [])
+            weeks: new Set(project.weeks || []),
+            weekMemos: project.weekMemos || {}
           };
         });
 
@@ -209,6 +210,18 @@ function app() {
 
       this.newProject = { name: '', color: '#3b82f6' };
       this.showAddProjectModal = false;
+      await this.loadTimeline();
+    },
+
+    async deleteProject(projectId) {
+      const project = this.projects.find(p => p.id === projectId);
+      const label = project ? project.name : '이 프로젝트';
+      if (!confirm(`"${label}" 프로젝트를 삭제합니다.\n이 프로젝트의 모든 구성원 배정도 함께 삭제됩니다.\n계속하시겠습니까?`)) return;
+      await db.assignments.where('projectId').equals(projectId).delete();
+      await db.projects.delete(projectId);
+      const next = { ...this.expandedProjects };
+      delete next[projectId];
+      this.expandedProjects = next;
       await this.loadTimeline();
     },
 
@@ -393,7 +406,13 @@ function app() {
     },
 
     // ========== DRAG LOGIC ==========
+    _pendingSingleApply: null,
+
     startDrag(rowType, rowId, weekIdx) {
+      if (this._pendingSingleApply) {
+        clearTimeout(this._pendingSingleApply);
+        this._pendingSingleApply = null;
+      }
       this.drag.active = true;
       this.drag.rowType = rowType;
       this.drag.rowId = rowId;
@@ -424,8 +443,44 @@ function app() {
         Math.max(this.drag.startWeek, this.drag.endWeek)
       ];
 
-      await this.applyDragRange(this.drag.rowId, start, end, this.drag.mode);
+      const rowType = this.drag.rowType;
+      const rowId = this.drag.rowId;
+      const mode = this.drag.mode;
       this.drag.active = false;
+
+      // For project rows, single-cell click is delayed so a dblclick can cancel it
+      if (rowType === 'project' && start === end) {
+        this._pendingSingleApply = setTimeout(async () => {
+          this._pendingSingleApply = null;
+          await this.applyDragRange(rowId, start, end, mode);
+        }, 250);
+        return;
+      }
+      await this.applyDragRange(rowId, start, end, mode);
+    },
+
+    async editProjectWeekMemo(projectId, weekIdx) {
+      if (this._pendingSingleApply) {
+        clearTimeout(this._pendingSingleApply);
+        this._pendingSingleApply = null;
+      }
+      const project = this.projects.find(p => p.id === projectId);
+      if (!project) return;
+      const weekKey = this.weekIdxToKey(weekIdx);
+      const existing = project.weekMemos?.[weekKey] || '';
+      const value = prompt(`${project.name} · ${weekKey} 메모`, existing);
+      if (value === null) return;
+      const memos = { ...(project.weekMemos || {}) };
+      if (value.trim()) memos[weekKey] = value.trim();
+      else delete memos[weekKey];
+      await db.projects.update(projectId, { weekMemos: memos });
+      await this.loadTimeline();
+    },
+
+    getProjectWeekMemo(projectId, weekIdx) {
+      const project = this.projects.find(p => p.id === projectId);
+      if (!project || !project.weekMemos) return '';
+      return project.weekMemos[this.weekIdxToKey(weekIdx)] || '';
     },
 
     async applyDragRange(rowId, startIdx, endIdx, mode) {
