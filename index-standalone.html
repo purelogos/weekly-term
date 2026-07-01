@@ -803,6 +803,13 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+.member-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.member-table th.sortable:hover { color: var(--ink); }
+.sort-mark { color: var(--accent); font-size: 9px; margin-left: 3px; }
+.member-table td.col-id { color: var(--muted); font-family: 'SF Mono', ui-monospace, Menlo, monospace; font-size: 12px; width: 50px; }
 .edit-input {
   width: 100%;
   padding: 6px 10px;
@@ -1050,7 +1057,7 @@ body {
       <div class="panel-content">
         <button class="btn-close" @click="selectedMember = null">✕</button>
         <h3 x-text="`${selectedMember.name} (${selectedMember.task || '-'})`"></h3>
-        <p class="member-grade" x-text="`연차: ${selectedMember.years || '-'}`"></p>
+        <p class="member-grade" x-text="`기타: ${selectedMember.years || '-'}`"></p>
         <div style="display:flex; gap:6px; margin-bottom:12px;">
           <button class="btn" @click="beginEditMember(selectedMember); showManageMembersModal = true;">편집</button>
           <button class="btn" @click="deleteMember(selectedMember.id)" style="color:#dc2626;">삭제</button>
@@ -1139,7 +1146,7 @@ body {
       <form @submit.prevent="createNewMember" class="form">
         <input type="text" placeholder="이름" x-model="createMember.name" required>
         <input type="text" placeholder="업무 (예: 프론트엔드, PM)" x-model="createMember.task">
-        <input type="text" placeholder="연차 (예: 3년, 신입)" x-model="createMember.years">
+        <input type="text" placeholder="기타 (예: 3년차, 특이사항)" x-model="createMember.years">
         <button type="submit" class="btn btn-primary">생성</button>
         <button type="button" @click="showCreateMemberModal = false; addMemberTargetProjectId = null; createMember = {name: '', task: '', years: ''};" class="btn">닫기</button>
       </form>
@@ -1201,11 +1208,18 @@ body {
       <p x-show="allMembers.length === 0" class="no-data">등록된 구성원이 없습니다.</p>
       <table class="member-table" x-show="allMembers.length > 0">
         <thead>
-          <tr><th>이름</th><th>업무</th><th>연차</th><th style="width:150px;">작업</th></tr>
+          <tr>
+            <th class="sortable" @click="toggleMemberSort('id')">ID <span class="sort-mark" x-show="memberSortField === 'id'" x-text="memberSortAsc ? '▲' : '▼'"></span></th>
+            <th class="sortable" @click="toggleMemberSort('name')">이름 <span class="sort-mark" x-show="memberSortField === 'name'" x-text="memberSortAsc ? '▲' : '▼'"></span></th>
+            <th class="sortable" @click="toggleMemberSort('task')">업무 <span class="sort-mark" x-show="memberSortField === 'task'" x-text="memberSortAsc ? '▲' : '▼'"></span></th>
+            <th class="sortable" @click="toggleMemberSort('years')">기타 <span class="sort-mark" x-show="memberSortField === 'years'" x-text="memberSortAsc ? '▲' : '▼'"></span></th>
+            <th style="width:150px;">작업</th>
+          </tr>
         </thead>
         <tbody>
-          <template x-for="m in allMembers" :key="m.id">
+          <template x-for="m in sortedMembers" :key="m.id">
             <tr>
+              <td class="col-id" x-text="m.id"></td>
               <template x-if="editingMemberId !== m.id"><td x-text="m.name"></td></template>
               <template x-if="editingMemberId === m.id"><td><input type="text" x-model="editMemberForm.name" class="edit-input"></td></template>
               <template x-if="editingMemberId !== m.id"><td x-text="m.task || '-'"></td></template>
@@ -1303,6 +1317,8 @@ function app() {
     addMemberTargetProjectId: null,
     logEventTargetMemberId: null,
     editingMemberId: null,
+    memberSortField: 'id',
+    memberSortAsc: true,
 
     PHASES: [
       { code: 'P4',      label: 'P4',      color: '#94bff3' },
@@ -1676,6 +1692,27 @@ function app() {
       if (!confirm(`"${memberName}"을(를) "${projectName}" 프로젝트에서 제외합니다.\n(구성원 자체는 유지됩니다)\n계속하시겠습니까?`)) return;
       await db.assignments.delete(assignmentId);
       await this.loadTimeline();
+    },
+
+    toggleMemberSort(field) {
+      if (this.memberSortField === field) {
+        this.memberSortAsc = !this.memberSortAsc;
+      } else {
+        this.memberSortField = field;
+        this.memberSortAsc = true;
+      }
+    },
+
+    get sortedMembers() {
+      const arr = [...this.allMembers];
+      const f = this.memberSortField;
+      const dir = this.memberSortAsc ? 1 : -1;
+      arr.sort((a, b) => {
+        const av = a[f], bv = b[f];
+        if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+        return String(av || '').localeCompare(String(bv || ''), 'ko') * dir;
+      });
+      return arr;
     },
 
     async deleteMember(memberId) {

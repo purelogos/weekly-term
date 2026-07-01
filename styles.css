@@ -784,6 +784,13 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+.member-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.member-table th.sortable:hover { color: var(--ink); }
+.sort-mark { color: var(--accent); font-size: 9px; margin-left: 3px; }
+.member-table td.col-id { color: var(--muted); font-family: 'SF Mono', ui-monospace, Menlo, monospace; font-size: 12px; width: 50px; }
 .edit-input {
   width: 100%;
   padding: 6px 10px;

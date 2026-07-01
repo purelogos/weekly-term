@@ -61,6 +61,8 @@ function app() {
     addMemberTargetProjectId: null,
     logEventTargetMemberId: null,
     editingMemberId: null,
+    memberSortField: 'id',
+    memberSortAsc: true,
 
     PHASES: [
       { code: 'P4',      label: 'P4',      color: '#94bff3' },
@@ -462,6 +464,27 @@ function app() {
       if (!confirm(`"${memberName}"을(를) "${projectName}" 프로젝트에서 제외합니다.\n(구성원 자체는 유지됩니다)\n계속하시겠습니까?`)) return;
       await db.assignments.delete(assignmentId);
       await this.loadTimeline();
+    },
+
+    toggleMemberSort(field) {
+      if (this.memberSortField === field) {
+        this.memberSortAsc = !this.memberSortAsc;
+      } else {
+        this.memberSortField = field;
+        this.memberSortAsc = true;
+      }
+    },
+
+    get sortedMembers() {
+      const arr = [...this.allMembers];
+      const f = this.memberSortField;
+      const dir = this.memberSortAsc ? 1 : -1;
+      arr.sort((a, b) => {
+        const av = a[f], bv = b[f];
+        if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+        return String(av || '').localeCompare(String(bv || ''), 'ko') * dir;
+      });
+      return arr;
     },
 
     async deleteMember(memberId) {
