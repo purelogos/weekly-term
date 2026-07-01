@@ -30,6 +30,23 @@
         <span class="year-display" x-text="`${currentYear}년`"></span>
         <button @click="nextYear()" class="btn-icon">▶</button>
       </div>
+      <div class="filters">
+        <select x-model="filterDepartment" class="filter-select" title="부서 필터">
+          <option value="">전체 부서</option>
+          <template x-for="d in uniqueDepartments" :key="d">
+            <option :value="d" x-text="d"></option>
+          </template>
+        </select>
+        <select x-model="filterMemberId" class="filter-select" title="구성원 필터">
+          <option value="">전체 구성원</option>
+          <template x-for="m in allMembers" :key="m.id">
+            <option :value="m.id" x-text="`${m.name} (${m.department})`"></option>
+          </template>
+        </select>
+        <button x-show="filterDepartment || filterMemberId"
+                @click="filterDepartment=''; filterMemberId=''"
+                class="btn-icon" title="필터 해제">✕</button>
+      </div>
     </div>
     <div class="header-right">
       <button @click="showAddProjectModal = true" class="btn btn-primary">+ 프로젝트</button>
@@ -55,7 +72,7 @@
 
     <!-- PROJECT ROWS + MEMBER SUB-ROWS -->
     <div class="timeline-rows">
-      <template x-for="project in projects" :key="project.id">
+      <template x-for="project in visibleProjects" :key="project.id">
         <div style="display: contents">
         <!-- PROJECT ROW -->
         <div class="row project-row" :style="`--project-color: ${project.color};`">

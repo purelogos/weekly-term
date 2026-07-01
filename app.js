@@ -38,6 +38,10 @@ function app() {
       mode: 'fill'       // 'fill' | 'erase'
     },
 
+    // Filters
+    filterDepartment: '',
+    filterMemberId: '',
+
     // Right panel
     selectedMember: null,
     memberAssignmentHistory: [],
@@ -106,7 +110,7 @@ function app() {
           return {
             ...project,
             members: projectMembers,
-            weeks: new Set() // will be computed from assignments
+            weeks: new Set(project.weeks || [])
           };
         });
 
@@ -209,6 +213,26 @@ function app() {
 
     isExpanded(projectId) {
       return !!this.expandedProjects[projectId];
+    },
+
+    get uniqueDepartments() {
+      return [...new Set(this.allMembers.map(m => m.department))].filter(Boolean).sort();
+    },
+
+    get visibleProjects() {
+      const memId = this.filterMemberId ? parseInt(this.filterMemberId) : null;
+      const dept = this.filterDepartment;
+      if (!memId && !dept) return this.projects;
+      return this.projects
+        .map(p => ({
+          ...p,
+          members: p.members.filter(m => {
+            if (memId && m.id !== memId) return false;
+            if (dept && m.department !== dept) return false;
+            return true;
+          })
+        }))
+        .filter(p => p.members.length > 0);
     },
 
     // ========== MEMBER ACTIONS ==========
@@ -363,23 +387,17 @@ function app() {
 
       if (this.drag.rowType === 'project') {
         const project = this.projects.find(p => p.id === rowId);
-        if (!project || project.members.length === 0) {
-          if (!project) return;
-          alert('이 프로젝트에 배정된 구성원이 없습니다. 먼저 구성원을 추가해 주세요.');
-          return;
+        if (!project) return;
+
+        if (mode === 'fill') {
+          weekKeys.forEach(w => project.weeks.add(w));
+        } else {
+          weekKeys.forEach(w => project.weeks.delete(w));
         }
 
-        // Apply fill/erase to ALL members of this project
-        for (const member of project.members) {
-          if (mode === 'fill') {
-            weekKeys.forEach(w => member.weeks.add(w));
-          } else {
-            weekKeys.forEach(w => member.weeks.delete(w));
-          }
-          await db.assignments.update(member.assignmentId, {
-            weeks: Array.from(member.weeks)
-          });
-        }
+        await db.projects.update(project.id, {
+          weeks: Array.from(project.weeks)
+        });
         await this.loadTimeline();
       } else {
         // Update member weeks within project
@@ -405,8 +423,7 @@ function app() {
       const project = this.projects.find(p => p.id === projectId);
       if (!project) return false;
       const weekKey = this.weekIdxToKey(weekIdx);
-      // Project is filled if ANY member is assigned in that week
-      return project.members.some(m => m.weeks.has(weekKey));
+      return project.weeks.has(weekKey);
     },
 
     isMemberWeekFilled(projectId, memberId, weekIdx) {

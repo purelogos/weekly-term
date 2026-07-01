@@ -196,6 +196,34 @@ body {
   border-color: var(--project-color, #3b82f6);
 }
 
+/* Member row cells use a neutral single color regardless of project */
+.member-row .cell.filled {
+  background: #64748b;
+  border-color: #64748b;
+  opacity: 1;
+}
+.member-row .cell.preview {
+  background: #64748b;
+  border-color: #64748b;
+  opacity: 0.35;
+}
+
+/* Filters */
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+}
+.filter-select {
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: white;
+  font-size: 12px;
+  max-width: 180px;
+}
+
 /* === NAME CELLS === */
 .name-cell {
   position: sticky;

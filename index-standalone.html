@@ -215,6 +215,32 @@ body {
   border-color: var(--project-color, #3b82f6);
 }
 
+.member-row .cell.filled {
+  background: #64748b;
+  border-color: #64748b;
+  opacity: 1;
+}
+.member-row .cell.preview {
+  background: #64748b;
+  border-color: #64748b;
+  opacity: 0.35;
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+}
+.filter-select {
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: white;
+  font-size: 12px;
+  max-width: 180px;
+}
+
 /* === NAME CELLS === */
 .name-cell {
   position: sticky;
@@ -553,6 +579,23 @@ body {
         <span class="year-display" x-text="`${currentYear}년`"></span>
         <button @click="nextYear()" class="btn-icon">▶</button>
       </div>
+      <div class="filters">
+        <select x-model="filterDepartment" class="filter-select" title="부서 필터">
+          <option value="">전체 부서</option>
+          <template x-for="d in uniqueDepartments" :key="d">
+            <option :value="d" x-text="d"></option>
+          </template>
+        </select>
+        <select x-model="filterMemberId" class="filter-select" title="구성원 필터">
+          <option value="">전체 구성원</option>
+          <template x-for="m in allMembers" :key="m.id">
+            <option :value="m.id" x-text="`${m.name} (${m.department})`"></option>
+          </template>
+        </select>
+        <button x-show="filterDepartment || filterMemberId"
+                @click="filterDepartment=''; filterMemberId=''"
+                class="btn-icon" title="필터 해제">✕</button>
+      </div>
     </div>
     <div class="header-right">
       <button @click="showAddProjectModal = true" class="btn btn-primary">+ 프로젝트</button>
@@ -578,7 +621,7 @@ body {
 
     <!-- PROJECT ROWS + MEMBER SUB-ROWS -->
     <div class="timeline-rows">
-      <template x-for="project in projects" :key="project.id">
+      <template x-for="project in visibleProjects" :key="project.id">
         <div style="display: contents">
         <!-- PROJECT ROW -->
         <div class="row project-row" :style="`--project-color: ${project.color};`">
@@ -814,6 +857,9 @@ function app() {
     },
 
     // Right panel
+    filterDepartment: '',
+    filterMemberId: '',
+
     selectedMember: null,
     memberAssignmentHistory: [],
     memberEvents: [],
@@ -881,7 +927,7 @@ function app() {
           return {
             ...project,
             members: projectMembers,
-            weeks: new Set() // will be computed from assignments
+            weeks: new Set(project.weeks || [])
           };
         });
 
@@ -984,6 +1030,26 @@ function app() {
 
     isExpanded(projectId) {
       return !!this.expandedProjects[projectId];
+    },
+
+    get uniqueDepartments() {
+      return [...new Set(this.allMembers.map(m => m.department))].filter(Boolean).sort();
+    },
+
+    get visibleProjects() {
+      const memId = this.filterMemberId ? parseInt(this.filterMemberId) : null;
+      const dept = this.filterDepartment;
+      if (!memId && !dept) return this.projects;
+      return this.projects
+        .map(p => ({
+          ...p,
+          members: p.members.filter(m => {
+            if (memId && m.id !== memId) return false;
+            if (dept && m.department !== dept) return false;
+            return true;
+          })
+        }))
+        .filter(p => p.members.length > 0);
     },
 
     // ========== MEMBER ACTIONS ==========
@@ -1139,21 +1205,15 @@ function app() {
       if (this.drag.rowType === 'project') {
         const project = this.projects.find(p => p.id === rowId);
         if (!project) return;
-        if (project.members.length === 0) {
-          alert('이 프로젝트에 배정된 구성원이 없습니다. 먼저 구성원을 추가해 주세요.');
-          return;
-        }
 
-        for (const member of project.members) {
-          if (mode === 'fill') {
-            weekKeys.forEach(w => member.weeks.add(w));
-          } else {
-            weekKeys.forEach(w => member.weeks.delete(w));
-          }
-          await db.assignments.update(member.assignmentId, {
-            weeks: Array.from(member.weeks)
-          });
+        if (mode === 'fill') {
+          weekKeys.forEach(w => project.weeks.add(w));
+        } else {
+          weekKeys.forEach(w => project.weeks.delete(w));
         }
+        await db.projects.update(project.id, {
+          weeks: Array.from(project.weeks)
+        });
         await this.loadTimeline();
       } else {
         // Update member weeks within project
@@ -1179,8 +1239,7 @@ function app() {
       const project = this.projects.find(p => p.id === projectId);
       if (!project) return false;
       const weekKey = this.weekIdxToKey(weekIdx);
-      // Project is filled if ANY member is assigned in that week
-      return project.members.some(m => m.weeks.has(weekKey));
+      return project.weeks.has(weekKey);
     },
 
     isMemberWeekFilled(projectId, memberId, weekIdx) {
