@@ -1458,7 +1458,7 @@ function app() {
 
     get weekHeaders() {
       const jan4 = dayjs(`${this.currentYear}-01-04`);
-      const firstMonday = jan4.startOf('week');
+      const firstMonday = jan4.startOf('isoWeek');
       return Array.from({ length: 52 }, (_, i) => {
         const monday = firstMonday.add(i, 'week');
         const friday = monday.add(4, 'day');
@@ -1474,8 +1474,8 @@ function app() {
       const now = dayjs();
       const year = now.year();
       const jan4 = dayjs(`${year}-01-04`);
-      const firstMonday = jan4.startOf('week');
-      const diffWeeks = now.startOf('week').diff(firstMonday, 'week') + 1;
+      const firstMonday = jan4.startOf('isoWeek');
+      const diffWeeks = now.startOf('isoWeek').diff(firstMonday, 'week') + 1;
       return `${year}-W${String(diffWeeks).padStart(2, '0')}`;
     },
 
@@ -1489,8 +1489,8 @@ function app() {
       const now = dayjs();
       if (now.year() !== this.currentYear) return -1;
       const jan4 = dayjs(`${this.currentYear}-01-04`);
-      const firstMonday = jan4.startOf('week');
-      return now.startOf('week').diff(firstMonday, 'week');
+      const firstMonday = jan4.startOf('isoWeek');
+      return now.startOf('isoWeek').diff(firstMonday, 'week');
     },
 
     isMemberActiveNow(projectId, memberId) {
@@ -1593,7 +1593,7 @@ function app() {
 
         // Calculate the Monday of the given week
         const jan4 = dayjs(`${year}-01-04`, 'YYYY-MM-DD');
-        const weekStart = jan4.startOf('week').add(week - 1, 'week');
+        const weekStart = jan4.startOf('isoWeek').add(week - 1, 'week');
         const weekEnd = weekStart.add(4, 'day'); // Friday
 
         return today.isSameOrAfter(weekStart) && today.isSameOrBefore(weekEnd);
@@ -1615,14 +1615,14 @@ function app() {
         const firstYear = parseInt(firstMatch[1]);
         const firstWk = parseInt(firstMatch[2]);
         const firstJan4 = dayjs(`${firstYear}-01-04`, 'YYYY-MM-DD');
-        const firstMonday = firstJan4.startOf('week').add(firstWk - 1, 'week').format('YYYY-MM-DD');
+        const firstMonday = firstJan4.startOf('isoWeek').add(firstWk - 1, 'week').format('YYYY-MM-DD');
 
         // Parse last week (Friday)
         const lastMatch = lastWeek.match(/(\d{4})-W(\d{2})/);
         const lastYear = parseInt(lastMatch[1]);
         const lastWk = parseInt(lastMatch[2]);
         const lastJan4 = dayjs(`${lastYear}-01-04`, 'YYYY-MM-DD');
-        const lastFriday = lastJan4.startOf('week').add(lastWk - 1, 'week').add(4, 'day').format('YYYY-MM-DD');
+        const lastFriday = lastJan4.startOf('isoWeek').add(lastWk - 1, 'week').add(4, 'day').format('YYYY-MM-DD');
 
         return { start: firstMonday, end: lastFriday };
       } catch (err) {
@@ -2383,8 +2383,8 @@ function app() {
       const rangeDates = (startKey, endKey) => {
         const s = parseKey(startKey), e = parseKey(endKey);
         if (!s || !e) return '';
-        const startMon = dayjs(`${s.year}-01-04`).startOf('week').add(s.week - 1, 'week');
-        const endFri   = dayjs(`${e.year}-01-04`).startOf('week').add(e.week - 1, 'week').add(4, 'day');
+        const startMon = dayjs(`${s.year}-01-04`).startOf('isoWeek').add(s.week - 1, 'week');
+        const endFri   = dayjs(`${e.year}-01-04`).startOf('isoWeek').add(e.week - 1, 'week').add(4, 'day');
         return `${startMon.format('YYYY-MM-DD')} ~ ${endFri.format('YYYY-MM-DD')}`;
       };
 
