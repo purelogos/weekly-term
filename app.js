@@ -344,7 +344,7 @@ function app() {
       const memSet = this.filterMemberIds.length > 0 && this.filterMemberIds.length < this.allMembers.length
                       ? new Set(this.filterMemberIds) : null;
       const activeOnly = this.filterOnlyActive;
-      const counts = activeOnly ? this.memberActiveCounts : null;
+      const currentKey = activeOnly ? this.currentWeekKey : null;
       if (!memSet && !taskSet && !activeOnly) return this.projects;
       return this.projects
         .map(p => ({
@@ -352,7 +352,7 @@ function app() {
           members: p.members.filter(m => {
             if (memSet && !memSet.has(m.id)) return false;
             if (taskSet && !taskSet.has(m.task)) return false;
-            if (activeOnly && !(counts[m.id] > 0)) return false;
+            if (activeOnly && !m.weeks.has(currentKey)) return false;
             return true;
           })
         }))
