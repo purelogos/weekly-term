@@ -91,6 +91,20 @@ body {
   color: var(--ink);
 }
 
+.today-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  background: var(--accent-soft);
+  border: 1px solid rgba(201, 100, 66, 0.3);
+  color: var(--accent-2);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+}
+
 .header-right { display: flex; gap: 8px; align-items: center; }
 
 /* === BUTTONS === */
@@ -257,6 +271,22 @@ body {
 }
 .project-row .project-cell:not(.filled):not(.preview):hover { background: var(--surface-2); }
 .member-row .cell:not(.filled):not(.preview):hover { background: var(--surface-2); }
+
+/* Today column highlight */
+.header-cell.week-header.today-week {
+  background: var(--accent-soft);
+  color: var(--accent-2);
+}
+.header-cell.week-header.today-week .week-num { color: var(--accent-2); }
+.cell.today-week:not(.filled):not(.preview) {
+  background: rgba(201, 100, 66, 0.05);
+  border-left: 1px solid rgba(201, 100, 66, 0.35);
+  border-right: 1px solid rgba(201, 100, 66, 0.35);
+}
+.header-cell.week-header.today-week {
+  border-left: 1px solid rgba(201, 100, 66, 0.4);
+  border-right: 1px solid rgba(201, 100, 66, 0.4);
+}
 
 /* Project memo indicator dot */
 .cell.has-memo::after {
@@ -629,6 +659,7 @@ body {
         <span class="year-display" x-text="`${currentYear}년`"></span>
         <button @click="nextYear()" class="btn-icon">▶</button>
       </div>
+      <div class="today-pill" x-text="todayLabel" title="오늘 날짜와 ISO 주차"></div>
       <div class="filters">
         <select x-model="filterTask" class="filter-select" title="업무 필터">
           <option value="">전체 업무</option>
@@ -664,7 +695,7 @@ body {
       <div class="cell header-cell header-info" title="이 구성원이 오늘 주차에 이 프로젝트에서 활성 배정되어 있는지 표시">현재</div>
       <div class="cell header-cell header-info memo-header">메모</div>
       <template x-for="(week, idx) in weekHeaders" :key="idx">
-        <div class="cell header-cell week-header">
+        <div class="cell header-cell week-header" :class="{'today-week': idx === todayWeekIdx}">
           <div class="week-num" x-text="week.num"></div>
           <div class="week-date" x-text="week.start"></div>
           <div class="week-date" x-text="week.end"></div>
@@ -701,7 +732,8 @@ body {
               :class="{
                 'filled': isProjectWeekFilled(project.id, weekIdx),
                 'preview': isProjectCellInDragPreview(project.id, weekIdx),
-                'has-memo': !!getProjectWeekMemo(project.id, weekIdx)
+                'has-memo': !!getProjectWeekMemo(project.id, weekIdx),
+                'today-week': weekIdx === todayWeekIdx
               }"
               :title="getProjectWeekMemo(project.id, weekIdx)"
               @mousedown="startDrag('project', project.id, weekIdx)"
@@ -737,10 +769,14 @@ body {
                 class="cell"
                 :class="{
                   'filled': isMemberWeekFilled(project.id, member.id, weekIdx),
-                  'preview': isMemberCellInDragPreview(project.id, member.id, weekIdx)
+                  'preview': isMemberCellInDragPreview(project.id, member.id, weekIdx),
+                  'has-memo': !!getMemberWeekMemo(project.id, member.id, weekIdx),
+                  'today-week': weekIdx === todayWeekIdx
                 }"
+                :title="getMemberWeekMemo(project.id, member.id, weekIdx)"
                 @mousedown="startDrag('member', `${project.id}-${member.id}`, weekIdx)"
                 @mouseover="updateDragPreview('member', `${project.id}-${member.id}`, weekIdx)"
+                @dblclick.prevent="editMemberWeekMemo(project.id, member.id, weekIdx)"
               ></div>
             </template>
           </div>
@@ -829,7 +865,7 @@ body {
         </select>
         <button type="button" @click="showAddMemberModal = false; showCreateMemberModal = true;" class="btn">+ 새 구성원 생성</button>
         <button type="submit" class="btn btn-primary" :disabled="!newMember.memberId">목록에서 추가</button>
-        <button type="button" @click="showAddMemberModal = false" class="btn">취소</button>
+        <button type="button" @click="showAddMemberModal = false; addMemberTargetProjectId = null; newMember = {memberId: null};" class="btn">닫기</button>
       </form>
     </div>
   </div>
@@ -843,7 +879,7 @@ body {
         <input type="text" placeholder="업무 (예: 프론트엔드, PM)" x-model="createMember.task">
         <input type="text" placeholder="연차 (예: 3년, 신입)" x-model="createMember.years">
         <button type="submit" class="btn btn-primary">생성</button>
-        <button type="button" @click="showCreateMemberModal = false" class="btn">취소</button>
+        <button type="button" @click="showCreateMemberModal = false; addMemberTargetProjectId = null; createMember = {name: '', task: '', years: ''};" class="btn">닫기</button>
       </form>
     </div>
   </div>
@@ -1017,6 +1053,20 @@ function app() {
       return `${year}-W${String(diffWeeks).padStart(2, '0')}`;
     },
 
+    get todayLabel() {
+      const now = dayjs();
+      const wk = this.currentWeekKey.split('-W')[1];
+      return `${now.format('YYYY.MM.DD (ddd)')} · W${wk}`;
+    },
+
+    get todayWeekIdx() {
+      const now = dayjs();
+      if (now.year() !== this.currentYear) return -1;
+      const jan4 = dayjs(`${this.currentYear}-01-04`);
+      const firstMonday = jan4.startOf('week');
+      return now.startOf('week').diff(firstMonday, 'week');
+    },
+
     isMemberActiveNow(projectId, memberId) {
       const project = this.projects.find(p => p.id === projectId);
       if (!project) return false;
@@ -1060,6 +1110,7 @@ function app() {
               ...member,
               assignmentId: assign.id,
               memo: assign.memo || '',
+              weekMemos: assign.weekMemos || {},
               weeks: weeks,
               activeProjectCount: activeProjectCount,
               startDate: dateRange.start,
@@ -1230,8 +1281,6 @@ function app() {
 
       this.expandedProjects = { ...this.expandedProjects, [projectId]: true };
       this.newMember = { memberId: null };
-      this.addMemberTargetProjectId = null;
-      this.showAddMemberModal = false;
       await this.loadTimeline();
     },
 
@@ -1363,8 +1412,6 @@ function app() {
       }
 
       this.createMember = { name: '', task: '', years: '' };
-      this.showCreateMemberModal = false;
-      this.addMemberTargetProjectId = null;
       await this.loadTimeline();
     },
 
@@ -1456,7 +1503,7 @@ function app() {
       const mode = this.drag.mode;
       this.drag.active = false;
 
-      if (rowType === 'project' && start === end) {
+      if (start === end) {
         this._pendingSingleApply = setTimeout(async () => {
           this._pendingSingleApply = null;
           await this.applyDragRange(rowId, start, end, mode);
@@ -1488,6 +1535,32 @@ function app() {
       const project = this.projects.find(p => p.id === projectId);
       if (!project || !project.weekMemos) return '';
       return project.weekMemos[this.weekIdxToKey(weekIdx)] || '';
+    },
+
+    async editMemberWeekMemo(projectId, memberId, weekIdx) {
+      if (this._pendingSingleApply) {
+        clearTimeout(this._pendingSingleApply);
+        this._pendingSingleApply = null;
+      }
+      const project = this.projects.find(p => p.id === projectId);
+      const member = project?.members.find(m => m.id === memberId);
+      if (!member) return;
+      const weekKey = this.weekIdxToKey(weekIdx);
+      const existing = member.weekMemos?.[weekKey] || '';
+      const value = prompt(`${member.name} · ${weekKey} 메모`, existing);
+      if (value === null) return;
+      const memos = { ...(member.weekMemos || {}) };
+      if (value.trim()) memos[weekKey] = value.trim();
+      else delete memos[weekKey];
+      await db.assignments.update(member.assignmentId, { weekMemos: memos });
+      await this.loadTimeline();
+    },
+
+    getMemberWeekMemo(projectId, memberId, weekIdx) {
+      const project = this.projects.find(p => p.id === projectId);
+      const member = project?.members.find(m => m.id === memberId);
+      if (!member || !member.weekMemos) return '';
+      return member.weekMemos[this.weekIdxToKey(weekIdx)] || '';
     },
 
     async applyDragRange(rowId, startIdx, endIdx, mode) {

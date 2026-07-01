@@ -72,6 +72,20 @@ body {
   color: var(--ink);
 }
 
+.today-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  background: var(--accent-soft);
+  border: 1px solid rgba(201, 100, 66, 0.3);
+  color: var(--accent-2);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+}
+
 .header-right { display: flex; gap: 8px; align-items: center; }
 
 /* === BUTTONS === */
@@ -238,6 +252,22 @@ body {
 }
 .project-row .project-cell:not(.filled):not(.preview):hover { background: var(--surface-2); }
 .member-row .cell:not(.filled):not(.preview):hover { background: var(--surface-2); }
+
+/* Today column highlight */
+.header-cell.week-header.today-week {
+  background: var(--accent-soft);
+  color: var(--accent-2);
+}
+.header-cell.week-header.today-week .week-num { color: var(--accent-2); }
+.cell.today-week:not(.filled):not(.preview) {
+  background: rgba(201, 100, 66, 0.05);
+  border-left: 1px solid rgba(201, 100, 66, 0.35);
+  border-right: 1px solid rgba(201, 100, 66, 0.35);
+}
+.header-cell.week-header.today-week {
+  border-left: 1px solid rgba(201, 100, 66, 0.4);
+  border-right: 1px solid rgba(201, 100, 66, 0.4);
+}
 
 /* Project memo indicator dot */
 .cell.has-memo::after {

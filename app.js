@@ -92,6 +92,20 @@ function app() {
       return `${year}-W${String(diffWeeks).padStart(2, '0')}`;
     },
 
+    get todayLabel() {
+      const now = dayjs();
+      const wk = this.currentWeekKey.split('-W')[1];
+      return `${now.format('YYYY.MM.DD (ddd)')} · W${wk}`;
+    },
+
+    get todayWeekIdx() {
+      const now = dayjs();
+      if (now.year() !== this.currentYear) return -1;
+      const jan4 = dayjs(`${this.currentYear}-01-04`);
+      const firstMonday = jan4.startOf('week');
+      return now.startOf('week').diff(firstMonday, 'week');
+    },
+
     isMemberActiveNow(projectId, memberId) {
       const project = this.projects.find(p => p.id === projectId);
       if (!project) return false;
@@ -135,6 +149,7 @@ function app() {
               ...member,
               assignmentId: assign.id,
               memo: assign.memo || '',
+              weekMemos: assign.weekMemos || {},
               weeks: weeks,
               activeProjectCount: activeProjectCount,
               startDate: dateRange.start,
@@ -305,8 +320,7 @@ function app() {
 
       this.expandedProjects = { ...this.expandedProjects, [projectId]: true };
       this.newMember = { memberId: null };
-      this.addMemberTargetProjectId = null;
-      this.showAddMemberModal = false;
+      // Keep modal + target project so the user can add another right away
       await this.loadTimeline();
     },
 
@@ -333,8 +347,7 @@ function app() {
       }
 
       this.createMember = { name: '', task: '', years: '' };
-      this.showCreateMemberModal = false;
-      this.addMemberTargetProjectId = null;
+      // Keep the create-member modal open until the user cancels
       await this.loadTimeline();
     },
 
@@ -532,8 +545,8 @@ function app() {
       const mode = this.drag.mode;
       this.drag.active = false;
 
-      // For project rows, single-cell click is delayed so a dblclick can cancel it
-      if (rowType === 'project' && start === end) {
+      // Single-cell click delayed so a dblclick can cancel and open memo prompt
+      if (start === end) {
         this._pendingSingleApply = setTimeout(async () => {
           this._pendingSingleApply = null;
           await this.applyDragRange(rowId, start, end, mode);
@@ -565,6 +578,32 @@ function app() {
       const project = this.projects.find(p => p.id === projectId);
       if (!project || !project.weekMemos) return '';
       return project.weekMemos[this.weekIdxToKey(weekIdx)] || '';
+    },
+
+    async editMemberWeekMemo(projectId, memberId, weekIdx) {
+      if (this._pendingSingleApply) {
+        clearTimeout(this._pendingSingleApply);
+        this._pendingSingleApply = null;
+      }
+      const project = this.projects.find(p => p.id === projectId);
+      const member = project?.members.find(m => m.id === memberId);
+      if (!member) return;
+      const weekKey = this.weekIdxToKey(weekIdx);
+      const existing = member.weekMemos?.[weekKey] || '';
+      const value = prompt(`${member.name} · ${weekKey} 메모`, existing);
+      if (value === null) return;
+      const memos = { ...(member.weekMemos || {}) };
+      if (value.trim()) memos[weekKey] = value.trim();
+      else delete memos[weekKey];
+      await db.assignments.update(member.assignmentId, { weekMemos: memos });
+      await this.loadTimeline();
+    },
+
+    getMemberWeekMemo(projectId, memberId, weekIdx) {
+      const project = this.projects.find(p => p.id === projectId);
+      const member = project?.members.find(m => m.id === memberId);
+      if (!member || !member.weekMemos) return '';
+      return member.weekMemos[this.weekIdxToKey(weekIdx)] || '';
     },
 
     async applyDragRange(rowId, startIdx, endIdx, mode) {

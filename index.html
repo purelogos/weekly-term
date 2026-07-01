@@ -30,6 +30,7 @@
         <span class="year-display" x-text="`${currentYear}년`"></span>
         <button @click="nextYear()" class="btn-icon">▶</button>
       </div>
+      <div class="today-pill" x-text="todayLabel" title="오늘 날짜와 ISO 주차"></div>
       <div class="filters">
         <select x-model="filterTask" class="filter-select" title="업무 필터">
           <option value="">전체 업무</option>
@@ -65,7 +66,7 @@
       <div class="cell header-cell header-info" title="이 구성원이 오늘 주차에 이 프로젝트에서 활성 배정되어 있는지 표시">현재</div>
       <div class="cell header-cell header-info memo-header">메모</div>
       <template x-for="(week, idx) in weekHeaders" :key="idx">
-        <div class="cell header-cell week-header">
+        <div class="cell header-cell week-header" :class="{'today-week': idx === todayWeekIdx}">
           <div class="week-num" x-text="week.num"></div>
           <div class="week-date" x-text="week.start"></div>
           <div class="week-date" x-text="week.end"></div>
@@ -102,7 +103,8 @@
               :class="{
                 'filled': isProjectWeekFilled(project.id, weekIdx),
                 'preview': isProjectCellInDragPreview(project.id, weekIdx),
-                'has-memo': !!getProjectWeekMemo(project.id, weekIdx)
+                'has-memo': !!getProjectWeekMemo(project.id, weekIdx),
+                'today-week': weekIdx === todayWeekIdx
               }"
               :title="getProjectWeekMemo(project.id, weekIdx)"
               @mousedown="startDrag('project', project.id, weekIdx)"
@@ -138,10 +140,14 @@
                 class="cell"
                 :class="{
                   'filled': isMemberWeekFilled(project.id, member.id, weekIdx),
-                  'preview': isMemberCellInDragPreview(project.id, member.id, weekIdx)
+                  'preview': isMemberCellInDragPreview(project.id, member.id, weekIdx),
+                  'has-memo': !!getMemberWeekMemo(project.id, member.id, weekIdx),
+                  'today-week': weekIdx === todayWeekIdx
                 }"
+                :title="getMemberWeekMemo(project.id, member.id, weekIdx)"
                 @mousedown="startDrag('member', `${project.id}-${member.id}`, weekIdx)"
                 @mouseover="updateDragPreview('member', `${project.id}-${member.id}`, weekIdx)"
+                @dblclick.prevent="editMemberWeekMemo(project.id, member.id, weekIdx)"
               ></div>
             </template>
           </div>
@@ -230,7 +236,7 @@
         </select>
         <button type="button" @click="showAddMemberModal = false; showCreateMemberModal = true;" class="btn">+ 새 구성원 생성</button>
         <button type="submit" class="btn btn-primary" :disabled="!newMember.memberId">목록에서 추가</button>
-        <button type="button" @click="showAddMemberModal = false" class="btn">취소</button>
+        <button type="button" @click="showAddMemberModal = false; addMemberTargetProjectId = null; newMember = {memberId: null};" class="btn">닫기</button>
       </form>
     </div>
   </div>
@@ -244,7 +250,7 @@
         <input type="text" placeholder="업무 (예: 프론트엔드, PM)" x-model="createMember.task">
         <input type="text" placeholder="연차 (예: 3년, 신입)" x-model="createMember.years">
         <button type="submit" class="btn btn-primary">생성</button>
-        <button type="button" @click="showCreateMemberModal = false" class="btn">취소</button>
+        <button type="button" @click="showCreateMemberModal = false; addMemberTargetProjectId = null; createMember = {name: '', task: '', years: ''};" class="btn">닫기</button>
       </form>
     </div>
   </div>
