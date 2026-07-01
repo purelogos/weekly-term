@@ -876,6 +876,42 @@ body {
   font-weight: 600;
 }
 .picker-empty { padding: 24px; text-align: center; color: var(--faint); font-size: 12.5px; }
+.picker-sort {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.picker-sort-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 4px;
+}
+.picker-sort-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.picker-sort-chip:hover { border-color: var(--accent); color: var(--ink); }
+.picker-sort-chip.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.picker-sort-arrow { font-size: 9px; }
 
 /* === SCROLLBARS === */
 .timeline-container::-webkit-scrollbar,

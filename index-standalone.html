@@ -895,6 +895,42 @@ body {
   font-weight: 600;
 }
 .picker-empty { padding: 24px; text-align: center; color: var(--faint); font-size: 12.5px; }
+.picker-sort {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.picker-sort-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 4px;
+}
+.picker-sort-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.picker-sort-chip:hover { border-color: var(--accent); color: var(--ink); }
+.picker-sort-chip.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.picker-sort-arrow { font-size: 9px; }
 
 /* === SCROLLBARS === */
 .timeline-container::-webkit-scrollbar,
@@ -1061,8 +1097,10 @@ body {
             <div class="name-cell member-name"
                  draggable="true"
                  @dragstart="onMemberDragStart($event, project.id, member.id, member.assignmentId)"
+                 @dragover.prevent
+                 @drop="onMemberRowDrop($event, project.id, member.assignmentId)"
                  @click="selectMember(member.id)"
-                 title="드래그하여 다른 프로젝트로 이동 · Ctrl+드래그로 복사">
+                 title="드래그하여 순서 변경 (같은 프로젝트 내) · 다른 프로젝트로 이동 · Ctrl+드래그로 복사">
               <span class="drag-handle">⋮⋮</span>
               <span x-text="member.name" class="member-name-text"></span>
               <button class="btn-square btn-square-danger btn-square-xs"
@@ -1175,12 +1213,17 @@ body {
   <div class="modal-backdrop" x-show="showAddMemberModal" @click.self="showAddMemberModal = false; memberPickerSearch=''">
     <div class="modal member-picker-modal">
       <h2>새 구성원 추가</h2>
-      <p class="phase-hint">
-        정렬 순서: <b x-text="({id:'ID', name:'이름', task:'업무', years:'기타'})[memberSortField]"></b>
-        <span x-text="memberSortAsc ? ' ▲' : ' ▼'"></span>
-        · <a class="task-filter-linkbtn" style="text-decoration:underline; cursor:pointer;"
-             @click="showAddMemberModal=false; showManageMembersModal=true;">정렬 변경</a>
-      </p>
+      <div class="picker-sort">
+        <span class="picker-sort-label">정렬</span>
+        <template x-for="opt in [{key:'id',label:'ID'},{key:'name',label:'이름'},{key:'task',label:'업무'},{key:'years',label:'기타'}]" :key="opt.key">
+          <button type="button" class="picker-sort-chip"
+                  :class="{'active': memberSortField === opt.key}"
+                  @click="toggleMemberSort(opt.key)">
+            <span x-text="opt.label"></span>
+            <span class="picker-sort-arrow" x-show="memberSortField === opt.key" x-text="memberSortAsc ? '▲' : '▼'"></span>
+          </button>
+        </template>
+      </div>
       <input type="text" class="picker-search" placeholder="이름 · 업무 · 기타 검색..."
              x-model="memberPickerSearch" autofocus>
       <div class="picker-list">
@@ -1491,7 +1534,9 @@ function app() {
 
         // Build projects with members
         const newProjects = projects.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map(project => {
-          const projectAssignments = assignments.filter(a => a.projectId === project.id);
+          const projectAssignments = assignments
+            .filter(a => a.projectId === project.id)
+            .sort((a, b) => ((a.sortOrder ?? a.id) - (b.sortOrder ?? b.id)));
           const projectMembers = projectAssignments.map(assign => {
             const member = members.find(m => m.id === assign.memberId);
             const weeks = new Set(assign.weeks || []);
@@ -1865,6 +1910,34 @@ function app() {
         return;
       }
       await this.onMemberDrop(evt, targetProjectId);
+    },
+
+    async reorderMemberWithinProject(projectId, srcAssignmentId, targetAssignmentId) {
+      if (srcAssignmentId === targetAssignmentId) return;
+      const assigns = (await db.assignments.where('projectId').equals(projectId).toArray())
+        .sort((a, b) => ((a.sortOrder ?? a.id) - (b.sortOrder ?? b.id)));
+      const srcIdx = assigns.findIndex(a => a.id === srcAssignmentId);
+      const tgtIdx = assigns.findIndex(a => a.id === targetAssignmentId);
+      if (srcIdx < 0 || tgtIdx < 0) return;
+      const [moved] = assigns.splice(srcIdx, 1);
+      assigns.splice(tgtIdx, 0, moved);
+      await Promise.all(assigns.map((a, i) => db.assignments.update(a.id, { sortOrder: i + 1 })));
+      await this.loadTimeline();
+    },
+
+    async onMemberRowDrop(evt, projectId, targetAssignmentId) {
+      const raw = evt.dataTransfer.getData('application/x-member-assignment')
+                  || evt.dataTransfer.getData('text/plain');
+      if (!raw) return;
+      let payload;
+      try { payload = JSON.parse(raw); } catch { return; }
+      const { projectId: srcProjectId, assignmentId } = payload;
+      if (srcProjectId === projectId) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        this.dropHoverProjectId = null;
+        await this.reorderMemberWithinProject(projectId, assignmentId, targetAssignmentId);
+      }
     },
 
     async reorderProject(srcId, targetId) {

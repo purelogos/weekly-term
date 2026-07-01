@@ -166,8 +166,10 @@
             <div class="name-cell member-name"
                  draggable="true"
                  @dragstart="onMemberDragStart($event, project.id, member.id, member.assignmentId)"
+                 @dragover.prevent
+                 @drop="onMemberRowDrop($event, project.id, member.assignmentId)"
                  @click="selectMember(member.id)"
-                 title="드래그하여 다른 프로젝트로 이동 · Ctrl+드래그로 복사">
+                 title="드래그하여 순서 변경 (같은 프로젝트 내) · 다른 프로젝트로 이동 · Ctrl+드래그로 복사">
               <span class="drag-handle">⋮⋮</span>
               <span x-text="member.name" class="member-name-text"></span>
               <button class="btn-square btn-square-danger btn-square-xs"
@@ -280,12 +282,17 @@
   <div class="modal-backdrop" x-show="showAddMemberModal" @click.self="showAddMemberModal = false; memberPickerSearch=''">
     <div class="modal member-picker-modal">
       <h2>새 구성원 추가</h2>
-      <p class="phase-hint">
-        정렬 순서: <b x-text="({id:'ID', name:'이름', task:'업무', years:'기타'})[memberSortField]"></b>
-        <span x-text="memberSortAsc ? ' ▲' : ' ▼'"></span>
-        · <a class="task-filter-linkbtn" style="text-decoration:underline; cursor:pointer;"
-             @click="showAddMemberModal=false; showManageMembersModal=true;">정렬 변경</a>
-      </p>
+      <div class="picker-sort">
+        <span class="picker-sort-label">정렬</span>
+        <template x-for="opt in [{key:'id',label:'ID'},{key:'name',label:'이름'},{key:'task',label:'업무'},{key:'years',label:'기타'}]" :key="opt.key">
+          <button type="button" class="picker-sort-chip"
+                  :class="{'active': memberSortField === opt.key}"
+                  @click="toggleMemberSort(opt.key)">
+            <span x-text="opt.label"></span>
+            <span class="picker-sort-arrow" x-show="memberSortField === opt.key" x-text="memberSortAsc ? '▲' : '▼'"></span>
+          </button>
+        </template>
+      </div>
       <input type="text" class="picker-search" placeholder="이름 · 업무 · 기타 검색..."
              x-model="memberPickerSearch" autofocus>
       <div class="picker-list">

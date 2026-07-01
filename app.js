@@ -169,7 +169,9 @@ function app() {
 
         // Build projects with members
         const newProjects = projects.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map(project => {
-          const projectAssignments = assignments.filter(a => a.projectId === project.id);
+          const projectAssignments = assignments
+            .filter(a => a.projectId === project.id)
+            .sort((a, b) => ((a.sortOrder ?? a.id) - (b.sortOrder ?? b.id)));
           const projectMembers = projectAssignments.map(assign => {
             const member = members.find(m => m.id === assign.memberId);
             const weeks = new Set(assign.weeks || []);
@@ -572,6 +574,35 @@ function app() {
         return;
       }
       await this.onMemberDrop(evt, targetProjectId);
+    },
+
+    async reorderMemberWithinProject(projectId, srcAssignmentId, targetAssignmentId) {
+      if (srcAssignmentId === targetAssignmentId) return;
+      const assigns = (await db.assignments.where('projectId').equals(projectId).toArray())
+        .sort((a, b) => ((a.sortOrder ?? a.id) - (b.sortOrder ?? b.id)));
+      const srcIdx = assigns.findIndex(a => a.id === srcAssignmentId);
+      const tgtIdx = assigns.findIndex(a => a.id === targetAssignmentId);
+      if (srcIdx < 0 || tgtIdx < 0) return;
+      const [moved] = assigns.splice(srcIdx, 1);
+      assigns.splice(tgtIdx, 0, moved);
+      await Promise.all(assigns.map((a, i) => db.assignments.update(a.id, { sortOrder: i + 1 })));
+      await this.loadTimeline();
+    },
+
+    async onMemberRowDrop(evt, projectId, targetAssignmentId) {
+      const raw = evt.dataTransfer.getData('application/x-member-assignment')
+                  || evt.dataTransfer.getData('text/plain');
+      if (!raw) return;
+      let payload;
+      try { payload = JSON.parse(raw); } catch { return; }
+      const { projectId: srcProjectId, assignmentId } = payload;
+      if (srcProjectId === projectId) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        this.dropHoverProjectId = null;
+        await this.reorderMemberWithinProject(projectId, assignmentId, targetAssignmentId);
+      }
+      // else: let the event bubble to the project row drop handler for reassignment
     },
 
     async reorderProject(srcId, targetId) {
