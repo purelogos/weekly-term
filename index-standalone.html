@@ -513,17 +513,23 @@ body {
 }
 .week-num {
   font-size: 10.5px;
-  font-weight: 600;
-  color: var(--ink);
+  font-weight: 700;
+  color: var(--accent);
   letter-spacing: 0.2px;
 }
 .week-date {
-  font-size: 8.5px;
-  color: var(--muted);
+  font-size: 9px;
+  color: #d0d6cd;
   font-family: 'SF Mono', ui-monospace, Menlo, monospace;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.2px;
+  line-height: 1.15;
 }
-.week-date + .week-date { color: var(--faint); }
+.week-day {
+  color: var(--ok);
+  font-weight: 700;
+  margin-right: 2px;
+}
+.week-date + .week-date .week-day { color: #ffb27a; }
 
 .info-cell {
   background: var(--surface);
@@ -569,8 +575,10 @@ body {
   font-size: 14px;
   letter-spacing: -0.01em;
 }
-.project-name:hover { background: #eae2d3; }
+.project-name:hover { background: var(--surface-hi); }
 .project-name .spacer { flex: 1; }
+.project-drag-handle { cursor: grab; padding: 0 2px; }
+.project-drag-handle:active { cursor: grabbing; }
 
 .project-color-dot {
   width: 9px;
@@ -909,8 +917,8 @@ body {
       <template x-for="(week, idx) in weekHeaders" :key="idx">
         <div class="cell header-cell week-header" :class="{'today-week': idx === todayWeekIdx}">
           <div class="week-num" x-text="week.num"></div>
-          <div class="week-date" x-text="week.start"></div>
-          <div class="week-date" x-text="week.end"></div>
+          <div class="week-date"><span class="week-day">월</span> <span x-text="week.start"></span></div>
+          <div class="week-date"><span class="week-day">금</span> <span x-text="week.end"></span></div>
         </div>
       </template>
     </div>
@@ -927,7 +935,12 @@ body {
                @click="toggleProject(project.id)"
                @dragover.prevent="onProjectDragOver($event, project.id)"
                @dragleave="onProjectDragLeave(project.id)"
-               @drop="onMemberDrop($event, project.id)">
+               @drop="onProjectRowDrop($event, project.id)">
+            <span class="drag-handle project-drag-handle"
+                  draggable="true"
+                  @click.stop=""
+                  @dragstart="onProjectDragStart($event, project.id)"
+                  title="드래그하여 프로젝트 순서 변경">⋮⋮</span>
             <span x-show="isExpanded(project.id)">▼</span>
             <span x-show="!isExpanded(project.id)">▶</span>
             <span class="project-color-dot" :style="`background:${project.color}`"></span>
@@ -1620,14 +1633,47 @@ function app() {
       evt.dataTransfer.setData('text/plain', payload);
     },
 
+    onProjectDragStart(evt, projectId) {
+      evt.stopPropagation();
+      evt.dataTransfer.effectAllowed = 'move';
+      evt.dataTransfer.setData('application/x-project-reorder', JSON.stringify({ projectId }));
+    },
+
     onProjectDragOver(evt, projectId) {
       evt.preventDefault();
-      evt.dataTransfer.dropEffect = evt.ctrlKey || evt.metaKey ? 'copy' : 'move';
+      const isProject = evt.dataTransfer.types.includes('application/x-project-reorder');
+      evt.dataTransfer.dropEffect = isProject ? 'move' : (evt.ctrlKey || evt.metaKey ? 'copy' : 'move');
       this.dropHoverProjectId = projectId;
     },
 
     onProjectDragLeave(projectId) {
       if (this.dropHoverProjectId === projectId) this.dropHoverProjectId = null;
+    },
+
+    async onProjectRowDrop(evt, targetProjectId) {
+      evt.preventDefault();
+      this.dropHoverProjectId = null;
+      const projRaw = evt.dataTransfer.getData('application/x-project-reorder');
+      if (projRaw) {
+        try {
+          const { projectId: srcId } = JSON.parse(projRaw);
+          if (srcId !== targetProjectId) await this.reorderProject(srcId, targetProjectId);
+        } catch {}
+        return;
+      }
+      await this.onMemberDrop(evt, targetProjectId);
+    },
+
+    async reorderProject(srcId, targetId) {
+      const projs = (await db.projects.where('year').equals(this.currentYear).toArray())
+        .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      const srcIdx = projs.findIndex(p => p.id === srcId);
+      const tgtIdx = projs.findIndex(p => p.id === targetId);
+      if (srcIdx < 0 || tgtIdx < 0) return;
+      const [moved] = projs.splice(srcIdx, 1);
+      projs.splice(tgtIdx, 0, moved);
+      await Promise.all(projs.map((p, i) => db.projects.update(p.id, { sortOrder: i + 1 })));
+      await this.loadTimeline();
     },
 
     async onMemberDrop(evt, targetProjectId) {

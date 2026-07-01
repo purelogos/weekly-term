@@ -469,14 +469,47 @@ function app() {
       evt.dataTransfer.setData('text/plain', payload);
     },
 
+    onProjectDragStart(evt, projectId) {
+      evt.stopPropagation();
+      evt.dataTransfer.effectAllowed = 'move';
+      evt.dataTransfer.setData('application/x-project-reorder', JSON.stringify({ projectId }));
+    },
+
     onProjectDragOver(evt, projectId) {
       evt.preventDefault();
-      evt.dataTransfer.dropEffect = evt.ctrlKey || evt.metaKey ? 'copy' : 'move';
+      const isProject = evt.dataTransfer.types.includes('application/x-project-reorder');
+      evt.dataTransfer.dropEffect = isProject ? 'move' : (evt.ctrlKey || evt.metaKey ? 'copy' : 'move');
       this.dropHoverProjectId = projectId;
     },
 
     onProjectDragLeave(projectId) {
       if (this.dropHoverProjectId === projectId) this.dropHoverProjectId = null;
+    },
+
+    async onProjectRowDrop(evt, targetProjectId) {
+      evt.preventDefault();
+      this.dropHoverProjectId = null;
+      const projRaw = evt.dataTransfer.getData('application/x-project-reorder');
+      if (projRaw) {
+        try {
+          const { projectId: srcId } = JSON.parse(projRaw);
+          if (srcId !== targetProjectId) await this.reorderProject(srcId, targetProjectId);
+        } catch {}
+        return;
+      }
+      await this.onMemberDrop(evt, targetProjectId);
+    },
+
+    async reorderProject(srcId, targetId) {
+      const projs = (await db.projects.where('year').equals(this.currentYear).toArray())
+        .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      const srcIdx = projs.findIndex(p => p.id === srcId);
+      const tgtIdx = projs.findIndex(p => p.id === targetId);
+      if (srcIdx < 0 || tgtIdx < 0) return;
+      const [moved] = projs.splice(srcIdx, 1);
+      projs.splice(tgtIdx, 0, moved);
+      await Promise.all(projs.map((p, i) => db.projects.update(p.id, { sortOrder: i + 1 })));
+      await this.loadTimeline();
     },
 
     async onMemberDrop(evt, targetProjectId) {

@@ -108,8 +108,8 @@
       <template x-for="(week, idx) in weekHeaders" :key="idx">
         <div class="cell header-cell week-header" :class="{'today-week': idx === todayWeekIdx}">
           <div class="week-num" x-text="week.num"></div>
-          <div class="week-date" x-text="week.start"></div>
-          <div class="week-date" x-text="week.end"></div>
+          <div class="week-date"><span class="week-day">월</span> <span x-text="week.start"></span></div>
+          <div class="week-date"><span class="week-day">금</span> <span x-text="week.end"></span></div>
         </div>
       </template>
     </div>
@@ -126,7 +126,12 @@
                @click="toggleProject(project.id)"
                @dragover.prevent="onProjectDragOver($event, project.id)"
                @dragleave="onProjectDragLeave(project.id)"
-               @drop="onMemberDrop($event, project.id)">
+               @drop="onProjectRowDrop($event, project.id)">
+            <span class="drag-handle project-drag-handle"
+                  draggable="true"
+                  @click.stop=""
+                  @dragstart="onProjectDragStart($event, project.id)"
+                  title="드래그하여 프로젝트 순서 변경">⋮⋮</span>
             <span x-show="isExpanded(project.id)">▼</span>
             <span x-show="!isExpanded(project.id)">▶</span>
             <span class="project-color-dot" :style="`background:${project.color}`"></span>

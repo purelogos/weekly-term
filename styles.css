@@ -494,17 +494,23 @@ body {
 }
 .week-num {
   font-size: 10.5px;
-  font-weight: 600;
-  color: var(--ink);
+  font-weight: 700;
+  color: var(--accent);
   letter-spacing: 0.2px;
 }
 .week-date {
-  font-size: 8.5px;
-  color: var(--muted);
+  font-size: 9px;
+  color: #d0d6cd;
   font-family: 'SF Mono', ui-monospace, Menlo, monospace;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.2px;
+  line-height: 1.15;
 }
-.week-date + .week-date { color: var(--faint); }
+.week-day {
+  color: var(--ok);
+  font-weight: 700;
+  margin-right: 2px;
+}
+.week-date + .week-date .week-day { color: #ffb27a; }
 
 .info-cell {
   background: var(--surface);
@@ -550,8 +556,10 @@ body {
   font-size: 14px;
   letter-spacing: -0.01em;
 }
-.project-name:hover { background: #eae2d3; }
+.project-name:hover { background: var(--surface-hi); }
 .project-name .spacer { flex: 1; }
+.project-drag-handle { cursor: grab; padding: 0 2px; }
+.project-drag-handle:active { cursor: grabbing; }
 
 .project-color-dot {
   width: 9px;
